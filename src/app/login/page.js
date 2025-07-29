@@ -159,7 +159,7 @@ export default function LoginForm() {
                   name="uuid"
                   value={formData.uuid}
                   onChange={handleChange}
-                  placeholder="c2d4b9dd-cda0-41c2-8b45-7781422ece2c"
+                  placeholder="00000000-0000-0000-0000-000000000000"
                   required
                 />
               </div>

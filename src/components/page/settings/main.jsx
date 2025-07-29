@@ -49,7 +49,7 @@ export function Main() {
     };
 
     return (
-        <div className="w-full h-full flex gap-5">
+        <div className="w-full h-full flex gap-3">
             <Card className="p-3 w-45 overflow-auto">
                 <CardContent className="flex flex-col gap-2 h-full p-0">
                     {settings.map((item) => (

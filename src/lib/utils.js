@@ -53,7 +53,7 @@ export function capitalizeFirstLetter(str) {
   return str.charAt(0).toUpperCase() + str.slice(1);
 }
 
-export function log(msg, type) {
+export function log(msg, type, title) {
   if (msg !== "") {
     let debug = localStorage.getItem('debug') === 'true';
     switch (type) {
@@ -68,22 +68,22 @@ export function log(msg, type) {
         break;
 
       case 'warning':
-        if (debug) console.warn(msg)
+        if (debug) console.warn(title || "Debug:", msg)
         toast.warning(msg)
         break;
 
       case 'success':
-        if (debug) console.log(msg)
+        if (debug) console.log(title || "Debug:", msg)
         toast.success(msg)
         break;
 
       case 'info':
-        if (debug) console.log(msg)
+        if (debug) console.log(title || "Debug:", msg)
         if (debug) toast.info(msg)
         break;
 
       case 'debug':
-        if (debug) console.log(msg)
+        if (debug) console.log(title || "Debug:", msg)
         break;
 
       default:

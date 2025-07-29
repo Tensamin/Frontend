@@ -7,6 +7,7 @@ import React, {
     useEffect,
     useState,
 } from "react";
+import { v7 } from "uuid"
 
 // Lib Imports
 import { log, getDisplayFromUsername } from "@/lib/utils";
@@ -31,6 +32,10 @@ export function UsersProvider({ children }) {
     let [fetchedUsers, setFetchedUsers] = useState({});
     let [userStates, setUserStates] = useState({})
     let [chatsArray, setChatsArray] = useState([])
+    let [voiceStatus, setVoiceStatus] = useState({
+        ping: 1,
+        status: "CONNECTED"
+    })
 
     function getUserState(uuid) {
         if (userStates[uuid]) {
@@ -118,6 +123,8 @@ export function UsersProvider({ children }) {
                 chatsArray,
                 setChatsArray,
                 makeChatTop,
+                voiceStatus,
+                setVoiceStatus,
             }}
         >
             {children}

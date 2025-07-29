@@ -98,9 +98,6 @@ export function MessageProvider({ children }) {
         body: body,
         icon: icon,
       });
-      console.log("Test notification sent!");
-    } else if (notificationPermission === "denied") {
-      toast.info(`${sender} sent you a message, enable notifications in the settings!`)
     } else {
       toast.info(`${sender} sent you a message, enable notifications in the settings!`)
     }
@@ -256,7 +253,6 @@ export function MessageProvider({ children }) {
     if (loadMoreMessages && !loadedAllMessages) {
       updateNavbarLoading(true);
       setNavbarLoadingMessage("Loading more messages.");
-      console.log(messagesAmount);
       send(
         "message_get",
         {

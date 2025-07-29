@@ -1,6 +1,7 @@
 // Package Imports
 import { useState, useEffect } from "react"
 import { v7 } from "uuid"
+import * as Icon from "lucide-react"
 
 // Lib Imports
 import { endpoint } from "@/lib/endpoints"
@@ -10,28 +11,41 @@ import { encrypt_base64_using_pubkey } from "@/lib/encryption"
 // Context Imports
 import { useWebSocketContext } from "@/components/context/websocket"
 import { useMessageContext } from "@/components/context/messages"
+import { usePageContext } from "@/components/context/page"
 
 // Components
-import { Card } from "@/components/ui/card"
+import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { 
-    AlertDialog, 
-    AlertDialogAction, 
-    AlertDialogCancel, 
-    AlertDialogContent, 
-    AlertDialogDescription, 
-    AlertDialogFooter, 
-    AlertDialogHeader, 
-    AlertDialogTitle, 
-    AlertDialogTrigger 
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger
 } from "@/components/ui/alert-dialog"
 import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button"
 
 // Main
 export function Main() {
     let [open, setOpen] = useState(false)
     let [newChatUUID, setNewChatUUID] = useState("")
+    let [callId, setCallId] = useState(v7())
     let { send } = useWebSocketContext()
+    let { setPage } = usePageContext()
+
+    function handleNewCallId(event) {
+        setCallId(event.target.value)
+    }
+
+    function handleNewCallIdSubmit(event) {
+        event.preventDefault()
+        setPage({ name: "voice", data: callId })
+    }
 
     function handleInputChange(e) {
         setNewChatUUID(e)
@@ -103,33 +117,55 @@ export function Main() {
     }
 
     return (
-        <div className="w-full h-full flex gap-5">
+        <div className="w-full h-full flex gap-3">
             <Card className="w-full h-full">
-                <AlertDialog>
-                    <AlertDialogTrigger asChild>
-                        <button
-                            role="combobox"
-                            aria-expanded={open}
-                            className="justify-between"
+                <CardHeader>
+                    <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                            <div className="flex">
+                                <button
+                                    role="combobox"
+                                    aria-expanded={open}
+                                    className="flex"
+                                >
+                                    <Badge>
+                                        Add Chat
+                                    </Badge>
+                                </button>
+                            </div>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                            <AlertDialogHeader>
+                                <AlertDialogTitle>Enter the UUID of the User</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                    <Input placeholder="00000000-0000-0000-0000-000000000000" value={newChatUUID} onChange={(e) => handleInputChange(e.target.value)} onSubmit={handleSubmit}></Input>
+                                </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction onClick={handleSubmit}>Add</AlertDialogAction>
+                            </AlertDialogFooter>
+                        </AlertDialogContent>
+                    </AlertDialog>
+                </CardHeader>
+                <CardContent className="h-full w-full">
+                    <p>Homepage</p>
+                    <form className="flex gap-1" onSubmit={handleNewCallIdSubmit}>
+                        <Input
+                            value={callId}
+                            onChange={handleNewCallId}
+                        />
+                        <Button
+                            className="h-9 w-9"
+                            type="submit"
                         >
-                            <Badge>
-                                Add Chat
-                            </Badge>
-                        </button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent>
-                        <AlertDialogHeader>
-                            <AlertDialogTitle>Enter the UUID of the User</AlertDialogTitle>
-                            <AlertDialogDescription>
-                                <Input className="text-foreground" placeholder="00000000-0000-0000-0000-000000000000" value={newChatUUID} onChange={(e) => handleInputChange(e.target.value)} onSubmit={handleSubmit}></Input>
-                            </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction onClick={handleSubmit}>Add</AlertDialogAction>
-                        </AlertDialogFooter>
-                    </AlertDialogContent>
-                </AlertDialog>
+                            <Icon.Replace />
+                        </Button>
+                    </form>
+                </CardContent>
+            </Card>
+            <Card className="w-70">
+
             </Card>
         </div>
     )

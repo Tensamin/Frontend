@@ -8,6 +8,7 @@ export let endpoint = {
     tos: "https://docs.tensamin.methanium.net/legal/terms-of-service",
     pp: "https://docs.tensamin.methanium.net/legal/privacy-policy",
     client_wss: "wss://tensamin.methanium.net/ws/client/",
+    call_wss: "wss://tensamin.methanium.net/ws/call/",
 
     chat: "/chat/"
 }

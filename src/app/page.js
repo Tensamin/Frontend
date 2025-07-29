@@ -13,6 +13,7 @@ import { AppSidebar } from "@/components/page/root/sidebar";
 import { Main as ChatMain } from "@/components/page/chat/main"
 import { Main as HomeMain } from "@/components/page/home/main"
 import { Main as SettingsMain } from "@/components/page/settings/main"
+import { Main as VoiceMain } from "@/components/page/voice/main"
 
 // Main
 export default function Home() {
@@ -49,6 +50,9 @@ export default function Home() {
               ) : null}
               {page.name === "settings" ? (
                 <SettingsMain data={page.data} />
+              ) : null}
+              {page.name === "voice" ? (
+                <VoiceMain data={page.data} />
               ) : null}
             </div>
           </SidebarInset>

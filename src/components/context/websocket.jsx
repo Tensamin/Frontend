@@ -51,7 +51,7 @@ export let WebSocketProvider = ({ children }) => {
       let message = JSON.parse(event.data);
 
       if (message.type !== "pong") {
-        logFunction(message, "debug")
+        logFunction(message, "debug", "Client WebSocket (Received):")
       }
 
       switch (message.type) {
@@ -131,7 +131,7 @@ export let WebSocketProvider = ({ children }) => {
       };
 
       if (messageToSend.type !== "ping") {
-        logFunction(messageToSend, "debug")
+        logFunction(messageToSend, "debug", "Client WebSocket (Sent):")
       }
 
       let timeoutId = setTimeout(() => {
@@ -153,12 +153,6 @@ export let WebSocketProvider = ({ children }) => {
       }
     });
   }, [sendMessage, readyState]);
-
-  useEffect(() => {
-    if (!connected) {
-      setIdentified(false)
-    }
-  }, [connected])
 
   // Pings
   useEffect(() => {
@@ -207,10 +201,12 @@ export let WebSocketProvider = ({ children }) => {
         }
       })
       )
+    } else {
+      setIdentified(false);
     }
   }, [connected, sendMessage]);
 
-  // idk stuff
+  // Unmount thing
   useEffect(() => {
     return () => {
       pendingRequests.current.forEach(({ reject, timeoutId }) => {

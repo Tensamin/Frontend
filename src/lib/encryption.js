@@ -74,6 +74,81 @@ export async function decrypt_base64_using_aes(base64EncryptedString, password) 
   return originalBase64String;
 }
 
+export async function encrypt_blob_to_base64_using_aes(blob, password) {
+  let arrayBuffer = await blob.arrayBuffer();
+  let data = new Uint8Array(arrayBuffer);
+
+  let passwordEncoder = new TextEncoder();
+  let passwordHash = await crypto.subtle.digest(
+    "SHA-256",
+    passwordEncoder.encode(password),
+  );
+
+  let derivedKey = await crypto.subtle.importKey(
+    "raw",
+    new Uint8Array(passwordHash),
+    { name: "AES-CBC", length: 256 },
+    false,
+    ["encrypt"],
+  );
+
+  let iv = crypto.getRandomValues(new Uint8Array(16));
+
+  let encryptedBuffer = await crypto.subtle.encrypt(
+    {
+      name: "AES-CBC",
+      iv: iv,
+    },
+    derivedKey,
+    data,
+  );
+
+  let combined = new Uint8Array(iv.length + encryptedBuffer.byteLength);
+  combined.set(iv, 0);
+  combined.set(new Uint8Array(encryptedBuffer), iv.length);
+  let base64Encrypted = btoa(String.fromCharCode(...combined));
+
+  return base64Encrypted;
+}
+
+export async function decrypt_base64_to_blob_using_aes(
+  base64EncryptedString,
+  password,
+) {
+  let combinedDecoded = Uint8Array.from(
+    atob(base64EncryptedString),
+    (c) => c.charCodeAt(0),
+  );
+
+  let iv = combinedDecoded.slice(0, 16);
+  let ciphertext = combinedDecoded.slice(16);
+
+  let passwordEncoder = new TextEncoder();
+  let passwordHash = await crypto.subtle.digest(
+    "SHA-256",
+    passwordEncoder.encode(password),
+  );
+
+  let derivedKey = await crypto.subtle.importKey(
+    "raw",
+    new Uint8Array(passwordHash),
+    { name: "AES-CBC", length: 256 },
+    false,
+    ["decrypt"],
+  );
+
+  let decryptedBuffer = await crypto.subtle.decrypt(
+    {
+      name: "AES-CBC",
+      iv: iv,
+    },
+    derivedKey,
+    ciphertext,
+  );
+
+  return new Blob([decryptedBuffer]);
+}
+
 export async function encrypt_base64_using_pubkey(base64String, pemPublicKey) {
   // Process public key
   let pemHeader = "-----BEGIN PUBLIC KEY-----";

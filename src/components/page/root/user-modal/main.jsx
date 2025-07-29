@@ -50,7 +50,6 @@ export function UserModal({ display, username, avatar, status }) {
                   src={actAvatar}
                   alt=""
                   onError={() => {
-                    console.log("ASDASD")
                     setAvatar("")
                   }}
                 />
