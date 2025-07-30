@@ -42,7 +42,7 @@ let itemVariants = {
 
 // Main
 export function Navbar() {
-    let { get } = useUsersContext();
+    let { get, startVoiceCall } = useUsersContext();
     let { open } = useSidebar();
     let { setPage } = usePageContext();
     let { failedMessages, navbarLoading, navbarLoadingMessage, receiver } = useMessageContext();
@@ -76,6 +76,16 @@ export function Navbar() {
             >
                 <motion.div layout="position" variants={itemVariants}>
                     <SidebarTrigger className="w-9 h-9" />
+                </motion.div>
+
+                <motion.div layout="position" variants={itemVariants}>
+                    <Button
+                        className="w-9 h-9"
+                        variant="outline"
+                        onClick={() => setPage({ name: "home", data: "" })}
+                    >
+                        <Icon.House />
+                    </Button>
                 </motion.div>
 
                 <motion.div layout="position" variants={itemVariants}>
@@ -162,17 +172,27 @@ export function Navbar() {
                             </HoverCard>
                         </motion.div>
                     )}
+                    {receiver !== "" && (
+                        <motion.div
+                            layout="position"
+                            key="call-button"
+                            variants={itemVariants}
+                            initial="hidden"
+                            animate="visible"
+                            exit="exit"
+                        >
+                            <Button
+                                className="w-9 h-9"
+                                variant="outline"
+                                onClick={() => {
+                                    startVoiceCall(undefined, undefined, receiver)
+                                }}
+                            >
+                                <Icon.PhoneCall />
+                            </Button>
+                        </motion.div>
+                    )}
                 </AnimatePresence>
-
-                <motion.div layout="position" variants={itemVariants}>
-                    <Button
-                        className="w-9 h-9"
-                        variant="outline"
-                        onClick={() => setPage({ name: "home", data: "" })}
-                    >
-                        <Icon.House />
-                    </Button>
-                </motion.div>
             </motion.div>
         </div>
     )

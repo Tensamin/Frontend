@@ -10,7 +10,7 @@ import React, {
 import { v7 } from "uuid"
 
 // Lib Imports
-import { log, getDisplayFromUsername } from "@/lib/utils";
+import { log, getDisplayFromUsername, isUuid } from "@/lib/utils";
 import { endpoint } from "@/lib/endpoints";
 
 // Main
@@ -36,6 +36,44 @@ export function UsersProvider({ children }) {
         ping: 1,
         status: "CONNECTED"
     })
+    let [shouldCreateCall, setShouldCreateCall] = useState(false);
+
+    let [currentCall, setCurrentCall] = useState({
+        connected: false,
+        mute: localStorage.getItem('call_mute') === "true",
+        deaf: localStorage.getItem('call_deaf') === "true",
+        id: v7(),
+        secret: v7(),
+        users: [],
+    })
+
+    useEffect(() => {
+        localStorage.setItem('call_mute', currentCall.mute ? "true" : "false")
+        localStorage.setItem('call_deaf', currentCall.deaf ? "true" : "false")
+    }, [currentCall.mute, currentCall.deaf])
+
+    function startVoiceCall(id, secret, receiver) {
+        if (typeof(id) !== "undefined" && typeof(secret) !== "undefined") {
+            setCurrentCall((prevData) => ({
+                ...prevData,
+                id: id,
+                secret: secret,
+            }))
+        }
+
+        setShouldCreateCall(true)
+    }
+
+    function stopVoiceCall() {
+        setShouldCreateCall(false)
+        setCurrentCall((prevCall) => ({
+            ...prevCall,
+            connected: false,
+            id: v7(),
+            secret: v7(),
+            users: [],
+        }))
+    }
 
     function getUserState(uuid) {
         if (userStates[uuid]) {
@@ -125,6 +163,11 @@ export function UsersProvider({ children }) {
                 makeChatTop,
                 voiceStatus,
                 setVoiceStatus,
+                currentCall,
+                setCurrentCall,
+                shouldCreateCall,
+                startVoiceCall,
+                stopVoiceCall,
             }}
         >
             {children}

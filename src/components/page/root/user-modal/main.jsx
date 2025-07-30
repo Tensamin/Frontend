@@ -2,6 +2,7 @@
 import { toast } from "sonner"
 import Image from "next/image"
 import * as Icon from "lucide-react"
+import { useEffect, useState } from "react"
 
 // Lib Imports
 import {
@@ -11,6 +12,9 @@ import {
   capitalizeFirstLetter,
   formatUserStatus,
 } from "@/lib/utils"
+
+// Context Imports
+import { useUsersContext } from "@/components/context/users"
 
 // Components
 import {
@@ -25,20 +29,21 @@ import {
 } from "@/components/ui/tooltip"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Badge } from "@/components/ui/badge"
-import { useEffect, useState } from "react"
-import { useUsersContext } from "@/components/context/users"
+import { VoiceControls } from "@/components/page/root/user-modal/voice"
+import { VoiceCall } from "@/components/page/voice/call"
 
 // Main
 export function UserModal({ display, username, avatar, status }) {
   let [actAvatar, setAvatar] = useState(avatar)
+  let { currentCall, shouldCreateCall } = useUsersContext();
 
   useEffect(() => {
     setAvatar(avatar)
   }, [avatar])
 
   return (
-    <div className="rounded-xl flex items-center h-15 pl-3 gap-3 justify-center">
-      <div>
+    <div className="rounded-xl flex flex-col items-center p-3 gap-3 justify-center">
+      <div className="flex w-full gap-3 items-center">
         <div className="relative w-[35px] h-[35px]">
           {actAvatar !== "..." ? (
             <Avatar className="bg-accent/50">
@@ -71,19 +76,25 @@ export function UserModal({ display, username, avatar, status }) {
             </TooltipContent>
           </Tooltip>
         </div>
+        <div className="w-full">
+          <div className="text-[14px] font-bold">{display !== "..." ? (
+            <p>{display}</p>
+          ) : (
+            <Skeleton className="mr-20"><p className="invisible">🥴</p></Skeleton>
+          )}</div>
+          <div className="text-[12px] font-bold text-foreground/67">{username !== "..." ? (
+            <p>{username}</p>
+          ) : (
+            <Skeleton className="mr-8 mt-1"><p className="invisible">🥴</p></Skeleton>
+          )}</div>
+        </div>
       </div>
-      <div className="w-full">
-        <div className="text-[14px] font-bold">{display !== "..." ? (
-          <p>{display}</p>
-        ) : (
-          <Skeleton className="mr-20"><p className="invisible">🥴</p></Skeleton>
-        )}</div>
-        <div className="text-[12px] font-bold text-foreground/67">{username !== "..." ? (
-          <p>{username}</p>
-        ) : (
-          <Skeleton className="mr-8 mt-1"><p className="invisible">🥴</p></Skeleton>
-        )}</div>
-      </div>
+      {currentCall.connected ? (
+        <VoiceControls />
+      ) : null}
+      {shouldCreateCall ? (
+        <VoiceCall />
+      ) : null}
     </div>
   )
 }
@@ -201,11 +212,11 @@ export function VoiceModal({ id }) {
 
   useEffect(() => {
     get(id)
-    .then(data => {
-      setDisplay(data.display)
-      setUsername(data.username)
-      setAvatar(data.avatar)
-    })
+      .then(data => {
+        setDisplay(data.display)
+        setUsername(data.username)
+        setAvatar(data.avatar)
+      })
   }, [id])
 
   return (

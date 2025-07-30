@@ -18,14 +18,10 @@ import {
   SidebarMenuItem,
 } from "@/components/ui/sidebar";
 import { UserModal } from "@/components/page/root/user-modal/main"
-import * as Voice from "@/components/page/root/user-modal/voice"
 import { Chats } from "@/components/page/root/chats"
 
 // Main
 export function AppSidebar(props) {
-  let voice = false;
-  let voice_calling = true;
-
   let { get } = useUsersContext()
   let [username, setUsername] = useState("...")
   let [display, setDisplay] = useState("...")
@@ -54,23 +50,6 @@ export function AppSidebar(props) {
               />
             </SidebarMenuButton>
           </SidebarMenuItem>
-          {voice ? (
-            <SidebarMenuItem>
-              <SidebarMenuButton size="lg" asChild>
-                <Voice.Connected
-
-                />
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          ) : voice_calling ? (
-            <SidebarMenuItem>
-              <SidebarMenuButton size="lg" asChild>
-                <Voice.Calling
-
-                />
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          ) : null}
         </SidebarMenu>
         <SidebarMenu className="mt-3 pb-5">
           <SidebarMenuItem>

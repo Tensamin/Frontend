@@ -9,6 +9,7 @@ import { isUuid } from "@/lib/utils"
 // Context Imports
 import { usePageContext } from "@/components/context/page"
 import { useWebSocketContext } from "@/components/context/websocket"
+import { useUsersContext } from "@/components/context/users"
 
 // Components
 import {
@@ -21,12 +22,13 @@ import { Card, CardHeader, CardTitle, CardAction, CardDescription } from "@/comp
 import { Skeleton } from "@/components/ui/skeleton"
 
 export function CallInvite({ data }) {
+    let { startVoiceCall } = useUsersContext();
     let { setPage } = usePageContext();
     let { send } = useWebSocketContext();
     let [splitData, setSplitData] = useState(["", ""]);
     let [invalid, setInvalid] = useState(false)
 
-    // Alex macht CallInvite kram
+    // Alex macht Call Invite design
 
     let [callState, setCallState] = useState("")
     let [connectedUsers, setConnectedUsers] = useState([])
@@ -86,10 +88,10 @@ export function CallInvite({ data }) {
         } else {
             return (
                 <Button
-                    disabled={invalid || callState === "DESTROYED"}
+                    disabled={invalid || callState === "DESTROYED" || callState === "INACTIVE"}
                     className={`w-9 h-9 ${invalid ? "bg-destructive" : ""}`}
                     onClick={() => {
-                        setPage({ name: "voice", data: JSON.stringify({ id: splitData[0], secret: splitData[1] }) })
+                        startVoiceCall(splitData[0], splitData[1]);
                     }}
                 >
                     <Icon.DoorOpen />
@@ -100,7 +102,7 @@ export function CallInvite({ data }) {
 
     return (
         <Card
-            className={`flex w-90 mb-2 mt-3 font-sans ${callState === "DESTROYED" ? "opacity-50" : ""}`}
+            className={`flex w-90 mb-2 mt-3 font-sans ${callState === "DESTROYED" || callState === "INACTIVE" ? "opacity-50" : ""}`}
             disabled={callState === "DESTROYED"}
         >
             <CardHeader>
