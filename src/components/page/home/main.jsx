@@ -34,18 +34,7 @@ import { Button } from "@/components/ui/button"
 export function Main() {
     let [open, setOpen] = useState(false)
     let [newChatUUID, setNewChatUUID] = useState("")
-    let [callId, setCallId] = useState(v7())
     let { send } = useWebSocketContext()
-    let { setPage } = usePageContext()
-
-    function handleNewCallId(event) {
-        setCallId(event.target.value)
-    }
-
-    function handleNewCallIdSubmit(event) {
-        event.preventDefault()
-        setPage({ name: "voice", data: callId })
-    }
 
     function handleInputChange(e) {
         setNewChatUUID(e)
@@ -150,18 +139,6 @@ export function Main() {
                 </CardHeader>
                 <CardContent className="h-full w-full">
                     <p>Homepage</p>
-                    <form className="flex gap-1" onSubmit={handleNewCallIdSubmit}>
-                        <Input
-                            value={callId}
-                            onChange={handleNewCallId}
-                        />
-                        <Button
-                            className="h-9 w-9"
-                            type="submit"
-                        >
-                            <Icon.Replace />
-                        </Button>
-                    </form>
                 </CardContent>
             </Card>
             <Card className="w-70">

@@ -3,6 +3,7 @@ import React from "react";
 
 // Components
 import { CodeBlock } from "@/components/ui/code-block";
+import { CallInvite } from "@/components/page/chat/invites"
 
 // Main
 
@@ -186,6 +187,12 @@ export let MarkdownToReactComponents = {
     ) : (
       <InlineCode>{children}</InlineCode>
     );
+  },
+  div: ({ node, ...props }) => {
+    if (props.className === 'invite') {
+      return <CallInvite {...props} />;
+    }
+    return <div {...props} />;
   },
   blockquote: Blockquote,
   ul: UnorderedList,

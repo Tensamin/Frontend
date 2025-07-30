@@ -1,6 +1,8 @@
 // Package Imports
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import remarkDirective from 'remark-directive';
+import { visit } from 'unist-util-visit';
 import { useState, useEffect } from "react";
 import { Hourglass } from "ldrs/react";
 import "ldrs/react/Hourglass.css";
@@ -31,12 +33,28 @@ export function SmolMessage({ message, sendToServer }) {
         }
     }, [sendToServer]);
 
+    function remarkInvite() {
+        return (tree) => {
+            visit(tree, (node) => {
+                if (
+                    node.type === 'containerDirective' &&
+                    node.name === 'invite'
+                ) {
+                    const data = node.data || (node.data = {});
+
+                    data.hName = 'div';
+                    data.hProperties = { className: 'invite' };
+                }
+            });
+        };
+    }
+
     return (
         <ContextMenu>
             <ContextMenuTrigger>
                 <div className={`flex gap-2 text-foreground hover:bg-input/15 rounded-sm pl-1 ${sendToServer ? "opacity-50" : null}`}>
                     <div className="whitespace-pre-wrap w-full">
-                        <ReactMarkdown remarkPlugins={[remarkGfm]} components={MarkdownToReactComponents}>
+                        <ReactMarkdown remarkPlugins={[remarkGfm, remarkDirective, remarkInvite]} components={MarkdownToReactComponents}>
                             {message.content}
                         </ReactMarkdown>
                     </div>
@@ -51,7 +69,7 @@ export function SmolMessage({ message, sendToServer }) {
                             <div
                                 className="invisible hover:visible h-full transition-opacity duration-500 ease-in-out"
                             >
-                                <Icon.Ellipsis size={14}/>
+                                <Icon.Ellipsis size={14} />
                             </div>
                         )}
                     </div>
