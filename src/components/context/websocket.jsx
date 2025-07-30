@@ -20,6 +20,9 @@ import { endpoint } from "@/lib/endpoints";
 import { useCryptoContext } from "@/components/context/crypto";
 import { useUsersContext } from "@/components/context/users";
 
+// Components
+import { Loading } from "@/components/loading/content"
+
 // Main
 let WebSocketContext = createContext(null);
 
@@ -219,7 +222,7 @@ export let WebSocketProvider = ({ children }) => {
     };
   }, []);
 
-  return (
+  return connected ? (
     <WebSocketContext.Provider value={{
       send,
       message: lastMessage,
@@ -231,5 +234,7 @@ export let WebSocketProvider = ({ children }) => {
     }}>
       {children}
     </WebSocketContext.Provider>
+  ) : (
+    <Loading message="Connecting to Omikron..." />
   );
 };
