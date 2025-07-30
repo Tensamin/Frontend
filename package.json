@@ -72,11 +72,9 @@
     "react-syntax-highlighter": "^15.6.1",
     "react-use-websocket": "^4.13.0",
     "recharts": "^2.15.3",
-    "remark-directive": "^4.0.0",
     "remark-gfm": "^4.0.1",
     "sonner": "^2.0.5",
     "tailwind-merge": "^3.3.1",
-    "unist-util-visit": "^5.0.0",
     "use-dencrypt-effect": "^2.0.0",
     "uuid": "^11.1.0",
     "vaul": "^1.1.2"

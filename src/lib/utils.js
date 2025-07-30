@@ -93,10 +93,10 @@ export function log(msg, type, title) {
 }
 
 export function isUuid(str) {
-  let uuidV7Regex =
-    /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-7[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$/;
+  const uuidRegex =
+    /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
 
-  return uuidV7Regex.test(str);
+  return uuidRegex.test(str);
 }
 
 export function isHexColor(str) {

@@ -1,8 +1,6 @@
 // Package Imports
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import remarkDirective from 'remark-directive';
-import { visit } from 'unist-util-visit';
 import { useState, useEffect } from "react";
 import { Hourglass } from "ldrs/react";
 import "ldrs/react/Hourglass.css";
@@ -19,12 +17,13 @@ import {
     ContextMenuSeparator,
     ContextMenuTrigger,
 } from "@/components/ui/context-menu"
-import { Button } from "@/components/ui/button"
 import { MarkdownToReactComponents } from "@/components/page/chat/markdown";
 
 // Main
 export function SmolMessage({ message, sendToServer }) {
     let [showLoading, setShowLoading] = useState(false);
+    
+    let niceMessage = message.content.replace(/:/g, '\\:');
 
     useEffect(() => {
         if (sendToServer) {
@@ -33,29 +32,13 @@ export function SmolMessage({ message, sendToServer }) {
         }
     }, [sendToServer]);
 
-    function remarkInvite() {
-        return (tree) => {
-            visit(tree, (node) => {
-                if (
-                    node.type === 'containerDirective' &&
-                    node.name === 'invite'
-                ) {
-                    const data = node.data || (node.data = {});
-
-                    data.hName = 'div';
-                    data.hProperties = { className: 'invite' };
-                }
-            });
-        };
-    }
-
     return (
         <ContextMenu>
             <ContextMenuTrigger>
                 <div className={`flex gap-2 text-foreground hover:bg-input/15 rounded-sm pl-1 ${sendToServer ? "opacity-50" : null}`}>
                     <div className="whitespace-pre-wrap w-full">
-                        <ReactMarkdown remarkPlugins={[remarkGfm, remarkDirective, remarkInvite]} components={MarkdownToReactComponents}>
-                            {message.content}
+                        <ReactMarkdown remarkPlugins={[remarkGfm]} components={MarkdownToReactComponents}>
+                            {niceMessage}
                         </ReactMarkdown>
                     </div>
                     <div className="pt-0.5">

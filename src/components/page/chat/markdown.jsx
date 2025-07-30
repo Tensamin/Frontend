@@ -60,7 +60,7 @@ export let Heading = ({ level, children }) => {
 
 // --- Paragraph ---
 export let Paragraph = ({ children }) => (
-  <p className="leading-relaxed">{children}</p>
+  <div className="leading-relaxed">{children}</div>
 );
 
 // --- Link ---
@@ -187,12 +187,6 @@ export let MarkdownToReactComponents = {
     ) : (
       <InlineCode>{children}</InlineCode>
     );
-  },
-  div: ({ node, ...props }) => {
-    if (props.className === 'invite') {
-      return <CallInvite {...props} />;
-    }
-    return <div {...props} />;
   },
   blockquote: Blockquote,
   ul: UnorderedList,
