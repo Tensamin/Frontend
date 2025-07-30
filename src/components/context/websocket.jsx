@@ -108,7 +108,7 @@ export let WebSocketProvider = ({ children }) => {
       onMessage: handleWebSocketMessage,
       shouldReconnect: () => true,
       share: true,
-      reconnectAttempts: 10,
+      reconnectAttempts: 5,
       reconnectInterval: 3000,
     }
   );
