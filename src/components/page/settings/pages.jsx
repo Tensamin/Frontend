@@ -515,6 +515,13 @@ export function Notifications() {
   )
 }
 
+export function Voice() {
+  return (
+    <div className="flex gap-2">
+    </div>
+  )
+}
+
 export function ExtraBenefits() {
   let { get } = useUsersContext()
 

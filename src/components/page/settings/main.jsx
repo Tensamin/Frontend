@@ -15,6 +15,7 @@ let settings = [
     { name: "Profile", id: "profile", disabled: false, comp: Page.Profile },
     { name: "Appearance", id: "appearance", disabled: false, comp: Page.Appearance },
     { name: "Notifications", id: "notifications", disabled: false, comp: Page.Notifications },
+    { name: "Voice", id: "voice", disabled: false, comp: Page.Voice },
     { name: "Premium", id: "premium", disabled: true, comp: Page.ExtraBenefits },
 
     { name: "Developer", id: "developer", disabled: false, comp: Page.Developer }
