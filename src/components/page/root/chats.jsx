@@ -28,7 +28,7 @@ export function Chats() {
     connected,
     identified,
   } = useWebSocketContext();
-  let { chatsArray, setChatsArray } = useUsersContext();
+  let { chatsArray, setChatsArray, forceLoad } = useUsersContext();
   let [loading, setLoading] = useState(true);
   let [chats, setChats] = useState([])
 
@@ -59,34 +59,40 @@ export function Chats() {
 
   return (
     <div className="flex flex-col gap-2">
-      {loading ? (
-        Array.from({ length: 10 }).map((_, i) => (
-          <SidebarMenuItem key={`skeleton-${i}`}>
-            <Button
-              className="w-full h-full p-1 pr-2.5 pl-0 rounded-2xl transition-all duration-200 ease-in-out"
-              variant="outline"
-            >
-              <div
-                variant="outline"
-                className="w-full text-left justify-start"
-              >
-                <SmallUserModalSkeleton />
-              </div>
-            </Button>
-          </SidebarMenuItem>
-        ))
+      {forceLoad ? (
+        <Chat chatsNotAllowed={true}/>
       ) : (
-        chats.map((chat) => (
-          <SidebarMenuItem key={chat.user_id}>
-            <Chat user_id={chat.user_id} />
-          </SidebarMenuItem>
-        ))
+        <>
+          {loading ? (
+            Array.from({ length: 10 }).map((_, i) => (
+              <SidebarMenuItem key={`skeleton-${i}`}>
+                <Button
+                  className="w-full h-full p-1 pr-2.5 pl-0 rounded-2xl transition-all duration-200 ease-in-out"
+                  variant="outline"
+                >
+                  <div
+                    variant="outline"
+                    className="w-full text-left justify-start"
+                  >
+                    <SmallUserModalSkeleton />
+                  </div>
+                </Button>
+              </SidebarMenuItem>
+            ))
+          ) : (
+            chats.map((chat) => (
+              <SidebarMenuItem key={chat.user_id}>
+                <Chat user_id={chat.user_id} />
+              </SidebarMenuItem>
+            ))
+          )}
+        </>
       )}
     </div>
   );
 }
 
-function Chat({ user_id }) {
+function Chat({ user_id, chatsNotAllowed = false }) {
   let { get, getUserState } = useUsersContext();
   let { setPage } = usePageContext();
 
@@ -103,9 +109,19 @@ function Chat({ user_id }) {
       onClick={() => {
         setPage({ name: "chat", data: user_id });
       }}
+      disabled={chatsNotAllowed}
     >
       <div variant="outline" className="w-full text-left justify-start">
-        {userData ? (
+        {chatsNotAllowed ? (
+          <SmallUserModal
+            display="Debug Mode"
+            username=""
+            avatar="notAllowed"
+            state="none"
+            status="This page was force loaded."
+            showIotaStatus={false}
+          />
+        ) : userData ? (
           <SmallUserModal
             display={userData.display}
             username={userData.username}

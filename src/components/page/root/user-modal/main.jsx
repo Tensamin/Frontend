@@ -104,10 +104,10 @@ export function SmallUserModal({ display, username, avatar, status, state, showI
 
   return (
     <div className="rounded-xl flex items-center h-12 pl-3 gap-3">
-      <div className="flex-shrink-0">
-        <div className="relative w-[27px] h-[27px] mb-2">
-          <Avatar className="bg-accent/50">
-            {avatar !== "" ? (
+      {avatar !== "notAllowed" ? (
+        <div className="flex-shrink-0">
+          <div className="relative w-[27px] h-[27px] mb-2">
+            <Avatar className="bg-accent/50">
               <Image
                 className="w-auto h-auto object-fill"
                 data-slot="avatar-image"
@@ -119,27 +119,28 @@ export function SmallUserModal({ display, username, avatar, status, state, showI
                   setAvatar("")
                 }}
               />
-            ) : null}
-            <AvatarFallback>
-              {convertDisplayNameToInitials(username)}
-            </AvatarFallback>
-          </Avatar>
-          <Tooltip>
-            <TooltipTrigger asChild className="absolute -bottom-2 -right-2 w-[15px] h-[15px]">
-              {state === "none" ? (
-                <div className="cursor-pointer rounded-full border-3 border-card bg-card">
-                  <Skeleton className="bg-white w-full h-full" />
-                </div>
-              ) : (
-                <div className={cn("cursor-pointer rounded-full border-3 border-card", statusColors[state] || "bg-white")} />
-              )}
-            </TooltipTrigger>
-            <TooltipContent className="border-1">
-              <p>{formatUserStatus(state)}</p>
-            </TooltipContent>
-          </Tooltip>
+              <AvatarFallback>
+                {convertDisplayNameToInitials(username)}
+              </AvatarFallback>
+            </Avatar>
+            <Tooltip>
+              <TooltipTrigger asChild className="absolute -bottom-2 -right-2 w-[15px] h-[15px]">
+                {state === "none" ? (
+                  <div className="cursor-pointer rounded-full border-3 border-card bg-card">
+                    <Skeleton className="bg-white w-full h-full" />
+                  </div>
+                ) : (
+                  <div className={cn("cursor-pointer rounded-full border-3 border-card", statusColors[state] || "bg-white")} />
+                )}
+              </TooltipTrigger>
+              <TooltipContent className="border-1">
+                <p>{formatUserStatus(state)}</p>
+              </TooltipContent>
+            </Tooltip>
+          </div>
         </div>
-      </div>
+
+      ) : null}
 
       <div className="min-w-0 flex-grow">
         <div className={`${showIotaStatus && state !== "IOTA_OFFLINE" ? "flex" : ""} gap-2 text-[15px] overflow-hidden whitespace-nowrap text-overflow-ellipsis`}>

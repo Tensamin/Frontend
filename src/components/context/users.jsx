@@ -10,7 +10,7 @@ import React, {
 import { v7 } from "uuid"
 
 // Lib Imports
-import { log, getDisplayFromUsername, isUuid } from "@/lib/utils";
+import { log, getDisplayFromUsername } from "@/lib/utils";
 import { endpoint } from "@/lib/endpoints";
 
 // Main
@@ -47,13 +47,15 @@ export function UsersProvider({ children }) {
         users: [],
     })
 
+    let [forceLoad, setForceLoad] = useState(false)
+
     useEffect(() => {
         localStorage.setItem('call_mute', currentCall.mute ? "true" : "false")
         localStorage.setItem('call_deaf', currentCall.deaf ? "true" : "false")
     }, [currentCall.mute, currentCall.deaf])
 
     function startVoiceCall(id, secret, receiver) {
-        if (typeof(id) !== "undefined" && typeof(secret) !== "undefined") {
+        if (typeof (id) !== "undefined" && typeof (secret) !== "undefined") {
             setCurrentCall((prevData) => ({
                 ...prevData,
                 id: id,
@@ -101,51 +103,55 @@ export function UsersProvider({ children }) {
     }
 
     async function get(uuid) {
-        if (fetchedUsers[uuid]) {
-            log("User already fetched: " + uuid, "debug")
-            return fetchedUsers[uuid];
-        } else {
-            let fetchedUser = await fetch(`${endpoint.user}${uuid}`)
-                .then((response) => response.json())
-                .then((data) => {
-                    if (data.type !== "error") {
-                        return data.data;
-                    } else {
-                        log(data.log.message, "error");
+        if (typeof(uuid) !== "undefined") {
+            if (fetchedUsers[uuid]) {
+                log("User already fetched: " + uuid, "debug")
+                return fetchedUsers[uuid];
+            } else {
+                let fetchedUser = await fetch(`${endpoint.user}${uuid}`)
+                    .then((response) => response.json())
+                    .then((data) => {
+                        if (data.type !== "error") {
+                            return data.data;
+                        } else {
+                            log(data.log.message, "error");
+                            return null;
+                        }
+                    })
+                    .catch((error) => {
+                        log(
+                            `Network error fetching user ${uuid}: ${error.message}`,
+                            "error",
+                        );
                         return null;
-                    }
-                })
-                .catch((error) => {
-                    log(
-                        `Network error fetching user ${uuid}: ${error.message}`,
-                        "error",
-                    );
-                    return null;
-                });
+                    });
 
-            if (!fetchedUser) {
-                return undefined;
+                if (!fetchedUser) {
+                    return undefined;
+                }
+
+                let userToStore = {
+                    uuid: uuid,
+                    created_at: fetchedUser.created_at,
+                    username: fetchedUser.username,
+                    display: getDisplayFromUsername(fetchedUser.username, fetchedUser.display),
+                    avatar: fetchedUser.avatar,
+                    about: atob(fetchedUser.about),
+                    status: fetchedUser.status,
+                    public_key: fetchedUser.public_key,
+                    sub_level: fetchedUser.sub_level,
+                    sub_end: fetchedUser.sub_end,
+                };
+
+                setFetchedUsers((prevUsers) => ({
+                    ...prevUsers,
+                    [uuid]: userToStore,
+                }));
+
+                return userToStore;
             }
-
-            let userToStore = {
-                uuid: uuid,
-                created_at: fetchedUser.created_at,
-                username: fetchedUser.username,
-                display: getDisplayFromUsername(fetchedUser.username, fetchedUser.display),
-                avatar: fetchedUser.avatar,
-                about: atob(fetchedUser.about),
-                status: fetchedUser.status,
-                public_key: fetchedUser.public_key,
-                sub_level: fetchedUser.sub_level,
-                sub_end: fetchedUser.sub_end,
-            };
-
-            setFetchedUsers((prevUsers) => ({
-                ...prevUsers,
-                [uuid]: userToStore,
-            }));
-
-            return userToStore;
+        } else {
+            return {}
         }
     }
 
@@ -168,6 +174,8 @@ export function UsersProvider({ children }) {
                 shouldCreateCall,
                 startVoiceCall,
                 stopVoiceCall,
+                forceLoad,
+                setForceLoad,
             }}
         >
             {children}

@@ -42,10 +42,12 @@ export let WebSocketProvider = ({ children }) => {
   let pendingRequests = useRef(new Map());
   let responseTimeout = 10000;
   let { privateKeyHash, IotaUUID } = useCryptoContext();
-  let { setUserState, setUserStates } = useUsersContext();
+  let { setUserState, setUserStates, forceLoad, setForceLoad } = useUsersContext();
   let [iotaPing, setIotaPing] = useState("?");
   let [clientPing, setClientPing] = useState("?");
   let [identified, setIdentified] = useState(false);
+  let [identificationFailed, setIdentificationFailed] = useState(false);
+  let [failedIdentificationMessage, setFailedIdentificationMessage] = useState(null)
 
   let [lastMessage, setLastMessage] = useState(null);
 
@@ -58,10 +60,6 @@ export let WebSocketProvider = ({ children }) => {
       }
 
       switch (message.type) {
-        case "identification_response":
-          setIdentified(true)
-          break;
-
         case "get_states":
           setUserStates(message.data.user_states)
           break;
@@ -81,8 +79,8 @@ export let WebSocketProvider = ({ children }) => {
         clearTimeout(timeoutId);
         pendingRequests.current.delete(message.id);
 
-        if (message.type !== 'error') {
-          resolve(message.data);
+        if (message.type !== 'error' || !identified) {
+          resolve(identified ? message.data : message);
         } else {
           reject(new Error(`Received unknown response type '${message.type}' for request ID '${message.id}'.`));
         }
@@ -119,48 +117,46 @@ export let WebSocketProvider = ({ children }) => {
   let connected = readyState === ReadyState.OPEN;
 
   let send = useCallback(async (requestType, log, data = {}) => {
-    if (readyState === ReadyState.CLOSED || readyState === ReadyState.CLOSING) {
-      throw new Error('WebSocket is not open. Connection is closed or closing, cannot send request.');
+    if (!forceLoad && readyState !== ReadyState.CLOSED && readyState !== ReadyState.CLOSING) {
+      return new Promise((resolve, reject) => {
+        let id = v7();
+
+        let messageToSend = {
+          id,
+          type: requestType,
+          log,
+          data,
+        };
+
+        if (messageToSend.type !== "ping") {
+          logFunction(messageToSend, "debug", "Client WebSocket (Sent):")
+        }
+
+        let timeoutId = setTimeout(() => {
+          pendingRequests.current.delete(id);
+          let timeoutError = new Error(`WebSocket request timed out for ID: ${id} (Type: ${requestType}) after ${responseTimeout}ms.`);
+          reject(timeoutError);
+        }, responseTimeout);
+
+        pendingRequests.current.set(id, { resolve, reject, timeoutId });
+
+        try {
+          sendMessage(JSON.stringify(messageToSend));
+        } catch (e) {
+          clearTimeout(timeoutId);
+          pendingRequests.current.delete(id);
+          let sendError = new Error(`Failed to send WebSocket message: ${e.message}`);
+          logFunction(sendError, 'error');
+          reject(sendError);
+        }
+      });
     }
-
-    return new Promise((resolve, reject) => {
-      let id = v7();
-
-      let messageToSend = {
-        id,
-        type: requestType,
-        log,
-        data,
-      };
-
-      if (messageToSend.type !== "ping") {
-        logFunction(messageToSend, "debug", "Client WebSocket (Sent):")
-      }
-
-      let timeoutId = setTimeout(() => {
-        pendingRequests.current.delete(id);
-        let timeoutError = new Error(`WebSocket request timed out for ID: ${id} (Type: ${requestType}) after ${responseTimeout}ms.`);
-        reject(timeoutError);
-      }, responseTimeout);
-
-      pendingRequests.current.set(id, { resolve, reject, timeoutId });
-
-      try {
-        sendMessage(JSON.stringify(messageToSend));
-      } catch (e) {
-        clearTimeout(timeoutId);
-        pendingRequests.current.delete(id);
-        let sendError = new Error(`Failed to send WebSocket message: ${e.message}`);
-        logFunction(sendError, 'error');
-        reject(sendError);
-      }
-    });
-  }, [sendMessage, readyState]);
+  }, [sendMessage, readyState, forceLoad]);
 
   // Pings
   useEffect(() => {
     let interval;
-    if (connected) {
+    if (connected && !forceLoad) {
       interval = setInterval(async () => {
         let time = Date.now()
         await send(
@@ -186,28 +182,34 @@ export let WebSocketProvider = ({ children }) => {
     }
 
     return () => clearInterval(interval);
-  }, [connected, send]);
+  }, [connected, send, forceLoad]);
 
   // Identification
   useEffect(() => {
-    if (connected) {
-      sendMessage(JSON.stringify({
-        type: "identification",
-        log: {
+    if (connected && !forceLoad) {
+      send("identification",
+        {
           message: "Client identifying",
           log_level: 0
         },
-        data: {
+        {
           iota_id: IotaUUID,
           user_id: localStorage.getItem('uuid'),
           private_key_hash: privateKeyHash
-        }
-      })
-      )
+        })
+        .then(data => {
+          if (data.type === "identification_response") {
+            setIdentified(true)
+          } else {
+            setIdentified(false);
+            setIdentificationFailed(true)
+            setFailedIdentificationMessage(data.log.message)
+          }
+        })
     } else {
       setIdentified(false);
     }
-  }, [connected, sendMessage]);
+  }, [connected, sendMessage, forceLoad]);
 
   // Unmount thing
   useEffect(() => {
@@ -222,7 +224,7 @@ export let WebSocketProvider = ({ children }) => {
     };
   }, []);
 
-  return connected ? (
+  return connected && ((identified && !identificationFailed) || forceLoad) ? (
     <WebSocketContext.Provider value={{
       send,
       message: lastMessage,
@@ -234,7 +236,11 @@ export let WebSocketProvider = ({ children }) => {
     }}>
       {children}
     </WebSocketContext.Provider>
-  ) : (
-    <Loading message="Connecting to Omikron..." />
-  );
+  ) : identificationFailed ?
+    <Loading key={identificationFailed} message={failedIdentificationMessage} error={true} allowDebugToForceLoad={true} returnDebug={(shouldLoad) => {
+      if (shouldLoad) {
+        setForceLoad(true)
+      }
+    }} /> :
+    <Loading message="Connecting to Omikron..." />;
 };

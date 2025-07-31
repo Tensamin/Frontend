@@ -22,7 +22,7 @@ import { Chats } from "@/components/page/root/chats"
 
 // Main
 export function AppSidebar(props) {
-  let { get } = useUsersContext()
+  let { get, forceLoad } = useUsersContext()
   let [username, setUsername] = useState("...")
   let [display, setDisplay] = useState("...")
   let [avatar, setAvatar] = useState("...")
@@ -54,10 +54,10 @@ export function AppSidebar(props) {
         <SidebarMenu className="mt-3 pb-5">
           <SidebarMenuItem>
             <div className="flex w-full justify-center rounded-full bg-card">
-              <Button className="rounded-full rounded-r-none w-1/2" variant="outline" disabled>
+              <Button className={`rounded-full rounded-r-none w-1/2 ${forceLoad ? "border-r-0" : ""}`} variant="outline" disabled={forceLoad}>
                 Communities
               </Button>
-              <Button className="rounded-full rounded-l-none w-1/2" variant="outline">
+              <Button className={`rounded-full rounded-l-none w-1/2 ${forceLoad ? "" : "border-l-0"}`} variant="outline" disabled={forceLoad}>
                 Chats
               </Button>
             </div>
