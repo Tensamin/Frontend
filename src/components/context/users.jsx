@@ -38,6 +38,8 @@ export function UsersProvider({ children }) {
         status: "CONNECTED"
     })
     let [shouldCreateCall, setShouldCreateCall] = useState(false);
+    let [gettingCalled, setGettingCalled] = useState(false)
+    let [gettingCalledData, setGettingCalledData] = useState({})
 
     let [currentCall, setCurrentCall] = useState({
         connected: false,
@@ -177,6 +179,10 @@ export function UsersProvider({ children }) {
                 stopVoiceCall,
                 forceLoad,
                 setForceLoad,
+                gettingCalled,
+                setGettingCalled,
+                gettingCalledData,
+                setGettingCalledData,
             }}
         >
             {children}

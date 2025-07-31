@@ -1,13 +1,16 @@
 // Package Imports
 import { useEffect, useState } from "react";
 import * as Icon from "lucide-react"
+import { toast } from "sonner"
 
 // Lib Imports
-import { copyTextToClipboard } from "@/lib/utils";
+import { copyTextToClipboard, sha256 } from "@/lib/utils";
 import ls from "@/lib/localStorageManager";
 
 // Context Imports
 import { useUsersContext } from "@/components/context/users";
+import { useWebSocketContext } from "@/components/context/websocket";
+import { useEncryptionContext } from "@/components/context/encryption";
 
 // Components
 import { Button } from "@/components/ui/button"
@@ -33,7 +36,7 @@ export function Main() {
     let { currentCall, chatsArray, get } = useUsersContext();
 
     let [inviteOpen, setInviteOpen] = useState(false);
-    let [usersWithSelf, setUsersWithSelf] = useState([])
+    let [usersWithSelf, setUsersWithSelf] = useState([]);
 
     useEffect(() => {
         if (currentCall.users.length > 0) {
@@ -68,10 +71,10 @@ export function Main() {
                 <CommandDialog open={inviteOpen} onOpenChange={setInviteOpen}>
                     <CommandInput placeholder="Search for a Friend..." />
                     <CommandList>
-                        <CommandEmpty>No friend found.</CommandEmpty>
-                        <CommandGroup heading="Friends">
+                        <CommandEmpty>No friends to invite.</CommandEmpty>
+                        <CommandGroup>
                             {chatsArray.map((chat) => (
-                                <InviteItem id={chat.user_id} key={chat.user_id} />
+                                <InviteItem id={chat.user_id} key={chat.user_id} onShouldClose={setInviteOpen} />
                             ))}
                         </CommandGroup>
                     </CommandList>
@@ -85,42 +88,52 @@ export function Main() {
     )
 }
 
-function InviteItem({ id }) {
-    let { get } = useUsersContext();
+function InviteItem({ id, onShouldClose }) {
+    let [display, setDisplay] = useState("...");
+    let [username, setUsername] = useState("...");
+    let [avatar, setAvatar] = useState("...");
+    let [publicKey, setPublicKey] = useState("...");
+    let [loading, setLoading] = useState(true);
 
-    let [fetched, setFetched] = useState(false)
-    let [profile, setProfile] = useState({
-        display: "...",
-        username: "...",
-        avatar: "",
-    })
+    let { get, currentCall } = useUsersContext();
+    let { encrypt_base64_using_pubkey } = useEncryptionContext();
+    let { send } = useWebSocketContext();
 
     useEffect(() => {
-        if (id !== "") {
-            get(id)
-                .then(data => {
-                    setProfile((prev) => ({
-                        ...prev,
-                        display: data.display,
-                        username: data.username,
-                        avatar: data.avatar,
-                    }))
-                    setFetched(true);
-                })
-        }
+        get(id)
+            .then(data => {
+                setDisplay(data.display);
+                setUsername(data.username);
+                setAvatar(data.avatar);
+                setPublicKey(data.public_key);
+                setLoading(false);
+            })
     }, [id])
 
-    return fetched ? (
-        <CommandItem
-            onClick={() => {
-
+    return (
+        <div
+            onClick={async () => {
+                send("call_invite", {
+                    message: `Invited ${id} to the call ${currentCall.id}`,
+                    log_level: 0,
+                }, {
+                    receiver_id: id,
+                    call_id: currentCall.id,
+                    call_secret: await encrypt_base64_using_pubkey(btoa(currentCall.secret), publicKey),
+                    call_secret_sha: await sha256(currentCall.secret),
+                })
+                onShouldClose(false)
             }}
         >
-            <MiniUserModal
-                display={profile.display}
-                username={profile.username}
-                avatar={profile.avatar}
-            />
-        </CommandItem>
-    ) : null
+            <CommandItem>
+                <p>{display}</p>
+                {/*<MiniUserModal
+                    display={display}
+                    username={username}
+                    avatar={avatar}
+                    loading={loading}
+                />*/}
+            </CommandItem>
+        </div>
+    )
 }

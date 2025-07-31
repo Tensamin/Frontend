@@ -21,6 +21,7 @@ import { Main as HomeMain } from "@/components/page/home/main"
 import { Main as SettingsMain } from "@/components/page/settings/main"
 import { Main as VoiceMain } from "@/components/page/voice/main"
 import { VoiceCall } from "@/components/page/voice/call"
+import { GettingCalled } from "@/components/page/voice/active"
 
 export function Page() {
     let [isVisible, setIsVisible] = useState(false);
@@ -52,6 +53,7 @@ export function Page() {
                             className="border-1 border-card rounded-4xl m-2 flex flex-col flex-1 overflow-hidden"
                         >
                             <div className={`flex flex-col items-center gap-5 flex-1 overflow-auto p-5 h-full transition-all duration-175 ease-out ${isVisible ? 'opacity-100 scale-100' : 'opacity-0 scale-90'}`}>
+                                <GettingCalled />
                                 {page.name === "chat" ? (
                                     <ChatMain data={page.data} />
                                 ) : null}

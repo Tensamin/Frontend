@@ -262,32 +262,43 @@ export function VoiceModal({ id }) {
   )
 }
 
-export function MiniUserModal({ display, username, avatar }) {
+export function MiniUserModal({ display, username, avatar, loading = false }) {
   let [actAvatar, setAvatar] = useState(avatar)
 
   return (
     <div className="rounded-xl flex items-center h-7 gap-3">
-      {avatar !== "notAllowed" ? (
-        <Avatar className="bg-accent/50 w-[36px] h-[36px]">
-          {avatar !== "" ? (
-            <Image
-              className="w-auto h-auto object-fill"
-              data-slot="avatar-image"
-              width={36}
-              height={36}
-              src={actAvatar}
-              alt=""
-              onError={() => {
-                setAvatar("")
-              }}
-            />
-          ) : null}
-          <AvatarFallback className="text-[16px]">
-            {convertDisplayNameToInitials(username)}
-          </AvatarFallback>
-        </Avatar>
-      ) : null}
-      <p className="text-[15px] overflow-hidden whitespace-nowrap text-overflow-ellipsis">{display}</p>
+      {loading ? (
+        <>
+          <Skeleton className="rounded-full size-8" />
+          <Skeleton className="text-[15px]"><p>A</p></Skeleton>
+        </>
+      ) : (
+        <>
+          {avatar !== "..." ? (
+            {/*<Avatar className="bg-accent/50 w-[36px] h-[36px]">
+              {actAvatar !== "" ? (
+                <Image
+                  className="w-auto h-auto object-fill"
+                  data-slot="avatar-image"
+                  width={36}
+                  height={36}
+                  src={actAvatar}
+                  alt=""
+                  onError={() => {
+                    setAvatar("")
+                  }}
+                />
+              ) : null}
+              <AvatarFallback className="text-[16px]">
+                {convertDisplayNameToInitials(username)}
+              </AvatarFallback>
+            </Avatar>*/}
+          ) : (
+            <Skeleton className="rounded-full size-8" />
+          )}
+          <p className="text-[15px] overflow-hidden whitespace-nowrap text-overflow-ellipsis">{display}</p>
+        </>
+      )}
     </div>
   );
 }

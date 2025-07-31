@@ -20,6 +20,7 @@ import ls from "@/lib/localStorageManager";
 // Context Imports
 import { useCryptoContext } from "@/components/context/crypto";
 import { useUsersContext } from "@/components/context/users";
+import { useEncryptionContext } from "@/components/context/encryption";
 
 // Components
 import { Loading } from "@/components/loading/content"
@@ -42,8 +43,9 @@ export let useWebSocketContext = () => {
 export let WebSocketProvider = ({ children }) => {
   let pendingRequests = useRef(new Map());
   let responseTimeout = 10000;
+  let { decrypt_base64_using_privkey } = useEncryptionContext();
   let { privateKeyHash, IotaUUID } = useCryptoContext();
-  let { setUserState, setUserStates, forceLoad, setForceLoad } = useUsersContext();
+  let { setUserState, setUserStates, forceLoad, setForceLoad, setGettingCalled, setGettingCalledData } = useUsersContext();
   let [iotaPing, setIotaPing] = useState("?");
   let [clientPing, setClientPing] = useState("?");
   let [identified, setIdentified] = useState(false);
@@ -52,7 +54,7 @@ export let WebSocketProvider = ({ children }) => {
 
   let [lastMessage, setLastMessage] = useState(null);
 
-  let handleWebSocketMessage = useCallback((event) => {
+  let handleWebSocketMessage = useCallback(async (event) => {
     try {
       let message = JSON.parse(event.data);
 
@@ -67,6 +69,15 @@ export let WebSocketProvider = ({ children }) => {
 
         case "client_changed":
           setUserState(message.data.user_id, message.data.user_state)
+          break;
+
+        case "new_call":
+          setGettingCalledData({
+            sender_id: message.data.sender_id,
+            call_id: message.data.call_id,
+            call_secret: await decrypt_base64_using_privkey(message.data.call_secret, privateKeyHash),
+          })
+          setGettingCalled(true)
           break;
 
         default:
