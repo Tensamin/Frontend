@@ -1,11 +1,7 @@
 // Package Imports
 import { JetBrains_Mono } from "next/font/google";
 
-// Context Imports
-import { CryptoProvider } from "@/components/context/crypto";
-
 // Components
-import { LoadingWrapper } from "@/components/loading/wrapper";
 import "./globals.css";
 
 // Main
@@ -23,11 +19,7 @@ export default async function RootLayout({ children }) {
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${jetbrainsMono.variable} antialiased`}>
-          <CryptoProvider>
-            <LoadingWrapper>
-              {children}
-            </LoadingWrapper>
-          </CryptoProvider>
+        {children}
       </body>
     </html>
   );

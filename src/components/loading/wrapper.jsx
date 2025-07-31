@@ -5,15 +5,15 @@ import { useState, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 
 // Context Imports
-import { ActualThemeProvider } from "@/components/context/theme";
 import { WebSocketProvider } from "@/components/context/websocket";
 import { MessageProvider } from "@/components/context/messages";
 import { UsersProvider } from "@/components/context/users"
 import { PageProvider } from "@/components/context/page";
+import { CryptoProvider } from "@/components/context/crypto";
 
 // Components
-import { Toaster } from "@/components/ui/sonner"
 import { Loading } from "@/components/loading/content";
+import { Page } from "@/components/page"
 
 // Main
 export function LoadingWrapper({ children }) {
@@ -71,34 +71,21 @@ export function LoadingWrapper({ children }) {
         }, 3000)
     }, [])
 
-    if (isLoading) {
-        return <Loading />;
-    }
-
-    const commonProviders = (
-        <ActualThemeProvider>
-            {children}
-            <Toaster />
-        </ActualThemeProvider>
-    );
-
-    if (pathname === '/login') {
-        return commonProviders;
-    }
-
-    if (isAuthenticated) {
-        return (
+    return isLoading ? (
+        <Loading />
+    ) : pathname === '/login' ? (
+        <Page />
+    ) : isAuthenticated ? (
+        <CryptoProvider>
             <UsersProvider>
                 <WebSocketProvider>
                     <MessageProvider>
                         <PageProvider>
-                            {commonProviders}
+                            <Page />
                         </PageProvider>
                     </MessageProvider>
                 </WebSocketProvider>
             </UsersProvider>
-        );
-    }
-
-    return null;
+        </CryptoProvider>
+    ) : null;
 }
