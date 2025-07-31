@@ -15,7 +15,7 @@ export let metadata = {
   description: "",
 };
 
-export default async function RootLayout({ children }) {
+export default function RootLayout({ children }) {
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${jetbrainsMono.variable} antialiased`}>

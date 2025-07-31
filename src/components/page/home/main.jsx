@@ -6,13 +6,11 @@ import * as Icon from "lucide-react"
 // Lib Imports
 import { endpoint } from "@/lib/endpoints"
 import { log, isUuid } from "@/lib/utils"
-import { encrypt_base64_using_pubkey } from "@/lib/encryption"
 import ls from "@/lib/localStorageManager";
 
 // Context Imports
 import { useWebSocketContext } from "@/components/context/websocket"
-import { useMessageContext } from "@/components/context/messages"
-import { usePageContext } from "@/components/context/page"
+import { useEncryptionContext } from "@/components/context/encryption"
 
 // Components
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
@@ -36,6 +34,7 @@ export function Main() {
     let [open, setOpen] = useState(false)
     let [newChatUUID, setNewChatUUID] = useState("")
     let { send } = useWebSocketContext()
+    let { encrypt_base64_using_pubkey } = useEncryptionContext();
 
     function handleInputChange(e) {
         setNewChatUUID(e)

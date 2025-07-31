@@ -6,10 +6,12 @@ import { toast } from "sonner";
 import { useState } from "react";
 
 // Lib Imports
-import { log } from "@/lib/utils"
 import { endpoint } from "@/lib/endpoints";
-import { sha256, createPasskey, encrypt_base64_using_aes } from "@/lib/encryption";
+import { log, sha256, createPasskey } from "@/lib/utils";
 import ls from "@/lib/localStorageManager";
+
+// Context Imports
+import { useEncryptionContext } from "@/components/context/encryption"
 
 // Components
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -38,6 +40,7 @@ export default function LoginForm() {
   let [formData, setFormData] = useState({ uuid: "", private_key: null, });
   let [isLoading, setIsLoading] = useState(false);
   let [useExistingPasskey, setUseExistingPasskey] = useState(false);
+  let { encrypt_base64_using_aes } = useEncryptionContext();
 
   // Main Stuff
   async function handleSubmit(e) {

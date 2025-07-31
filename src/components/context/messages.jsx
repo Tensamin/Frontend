@@ -12,19 +12,14 @@ import {
 import { toast } from "sonner";
 
 // Lib Imports
-import { endpoint } from "@/lib/endpoints";
-import { getDisplayFromUsername, log } from "@/lib/utils";
-import {
-  decrypt_base64_using_privkey,
-  encrypt_base64_using_aes,
-  decrypt_base64_using_aes,
-} from "@/lib/encryption";
+import { log } from "@/lib/utils";
 import ls from "@/lib/localStorageManager";
 
 // Context Imports
 import { useCryptoContext } from "@/components/context/crypto";
 import { useWebSocketContext } from "@/components/context/websocket";
 import { useUsersContext } from "@/components/context/users";
+import { useEncryptionContext } from "@/components/context/encryption"
 
 // Main
 let MessageContext = createContext();
@@ -46,6 +41,7 @@ export function MessageProvider({ children }) {
   let { privateKey } = useCryptoContext();
   let { get, makeChatTop } = useUsersContext();
   let { send, connected, message } = useWebSocketContext();
+  let { decrypt_base64_using_privkey, encrypt_base64_using_aes, decrypt_base64_using_aes } = useEncryptionContext();
 
   let [receiver, setReceiver] = useState("");
   let [receiverPublicKey, setReceiverPublicKey] = useState("");
@@ -66,7 +62,7 @@ export function MessageProvider({ children }) {
     if ("Notification" in window) {
       setNotificationPermission(Notification.permission);
     } else {
-      console.warn("Notifications are not supported by this browser.");
+      log("Notifications are not supported by this browser.", "warning");
     }
   }, []);
 

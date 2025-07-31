@@ -4,13 +4,13 @@ import useWebSocket, { ReadyState } from "react-use-websocket";
 
 // Lib Imports
 import { endpoint } from "@/lib/endpoints";
-import { log } from "@/lib/utils";
-import { sha256, encrypt_base64_using_aes, decrypt_base64_using_aes } from "@/lib/encryption";
+import { log, sha256 } from "@/lib/utils";
 import ls from "@/lib/localStorageManager";
 
 // Context Imports
 import { useCryptoContext } from "@/components/context/crypto";
 import { useUsersContext } from "@/components/context/users";
+import { useEncryptionContext } from "@/components/context/encryption";
 
 // Components
 import { VoiceModal } from "@/components/page/root/user-modal/main";
@@ -19,7 +19,7 @@ import { VoiceModal } from "@/components/page/root/user-modal/main";
 export function VoiceCall() {
     let { privateKeyHash } = useCryptoContext();
     let { currentCall, setCurrentCall } = useUsersContext();
-    console.log(currentCall)
+    let { encrypt_base64_using_aes, decrypt_base64_using_aes } = useEncryptionContext();
 
     let peerConnections = useRef(new Map());
     let remoteAudioRefs = useRef(new Map());

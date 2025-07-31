@@ -11,9 +11,11 @@ import {
 import { useRouter } from "next/navigation";
 
 // Lib Imports
-import { log } from "@/lib/utils";
-import { sha256, decrypt_base64_using_aes } from "@/lib/encryption";
+import { log, sha256 } from "@/lib/utils";
 import ls from "@/lib/localStorageManager";
+
+// Context Imports
+import { useEncryptionContext } from "@/components/context/encryption";
 
 // Components
 import { Loading } from "@/components/loading/content";
@@ -36,6 +38,7 @@ export function CryptoProvider({ children }) {
   let [privateKeyHash, setPrivateKeyHash] = useState("pending");
   let [IotaUUID, setIotaUUID] = useState("pending");
   let [isInitialized, setIsInitialized] = useState(false);
+  let { decrypt_base64_using_aes } = useEncryptionContext();
   let retryCountRef = useRef(0);
   let MAX_PASSKEY_RETRIES = 5;
 

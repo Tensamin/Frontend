@@ -13,6 +13,7 @@ import { MessageProvider } from "@/components/context/messages";
 import { UsersProvider } from "@/components/context/users"
 import { PageProvider } from "@/components/context/page";
 import { CryptoProvider } from "@/components/context/crypto";
+import { EncryptionProvider } from "@/components/context/encryption";
 
 // Components
 import { Loading } from "@/components/loading/content";
@@ -79,16 +80,18 @@ export function LoadingWrapper({ children }) {
     ) : pathname === '/login' ? (
         <Page />
     ) : isAuthenticated ? (
-        <CryptoProvider>
-            <UsersProvider>
-                <WebSocketProvider>
-                    <MessageProvider>
-                        <PageProvider>
-                            <Page />
-                        </PageProvider>
-                    </MessageProvider>
-                </WebSocketProvider>
-            </UsersProvider>
-        </CryptoProvider>
+        <EncryptionProvider>
+            <CryptoProvider>
+                <UsersProvider>
+                    <WebSocketProvider>
+                        <MessageProvider>
+                            <PageProvider>
+                                <Page />
+                            </PageProvider>
+                        </MessageProvider>
+                    </WebSocketProvider>
+                </UsersProvider>
+            </CryptoProvider>
+        </EncryptionProvider>
     ) : null;
 }

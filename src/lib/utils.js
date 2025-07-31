@@ -170,3 +170,66 @@ export function formatUserStatus(statusString) {
 
   return formattedParts.join(' ');
 }
+
+export async function sha256(message) {
+  let encoder = new TextEncoder();
+  let data = encoder.encode(message);
+  let hashBuffer = await crypto.subtle.digest("SHA-256", data);
+
+  return Array.from(new Uint8Array(hashBuffer))
+    .map(byte => byte.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+export async function createPasskey(userId) {
+  let creds = await navigator.credentials.create({
+    publicKey: {
+      challenge: btoa("alar"),
+      rp: { name: "Tensamin" },
+      user: {
+        id: userId,
+        name: userId,
+        displayName: "Tensamin",
+      },
+      pubKeyCredParams: [{ type: "public-key", alg: -7 }], // ES256
+      authenticatorSelection: {
+        authenticatorAttachment: "platform",
+        requireResidentKey: true,
+        userVerification: "required",
+      },
+      timeout: 60000,
+      attestation: "none",
+    },
+  });
+
+  localStorage.setItem(
+    "passkey_id",
+    creds.id,
+  );
+
+  return creds.id;
+}
+
+export async function getDerivedKey(passkey_id) {
+  try {
+    let creds = await navigator.credentials.get({
+      publicKey: {
+        challenge: btoa("alar"),
+        allowCredentials: [
+          {
+            type: "public-key",
+            id: passkey_id,
+          },
+        ],
+        userVerification: "required",
+      },
+    });
+
+    let signature = creds.response.signature;
+
+    let derivedKey = await sha256(signature);
+    return derivedKey;
+  } catch (err) {
+    throw new Error(`Could not get signature: ${err.message}`);
+  }
+}
