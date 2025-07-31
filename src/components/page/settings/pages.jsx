@@ -13,6 +13,7 @@ import {
 } from "@/lib/theme";
 import { cn, isHexColor, log, capitalizeFirstLetter } from "@/lib/utils";
 import { endpoint } from "@/lib/endpoints";
+import ls from "@/lib/localStorageManager";
 
 // Context Imports
 import { useCryptoContext } from "@/components/context/crypto";
@@ -70,7 +71,7 @@ export function Profile() {
   let [aboutChars, setAboutChars] = useState(0);
 
   useEffect(() => {
-    get(localStorage.getItem('uuid'))
+    get(ls.get('uuid'))
       .then(data => {
         setProfile({
           username: data.username,
@@ -90,7 +91,7 @@ export function Profile() {
       ...prevData,
       [field]: field === "about" ? atob(newValue) : newValue,
     }));
-    fetch(`${endpoint.user}${localStorage.getItem('uuid')}/change_${field}`, {
+    fetch(`${endpoint.user}${ls.get('uuid')}/change_${field}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: `{"private_key_hash": "${privateKeyHash}", "${field}": "${newValue}"}`
@@ -168,15 +169,15 @@ export function Profile() {
 }
 
 export function Appearance() {
-  let [color, setColor] = useState(localStorage.getItem("theme") || "");
-  let [tmpColor, setTmpColor] = useState(localStorage.getItem("theme") || "");
-  let [tint, setTint] = useState(localStorage.getItem("tint") || "soft");
-  let [colorScheme, setColorScheme] = useState(localStorage.getItem("colorScheme") || "dark");
+  let [color, setColor] = useState(ls.get("theme") || "");
+  let [tmpColor, setTmpColor] = useState(ls.get("theme") || "");
+  let [tint, setTint] = useState(ls.get("tint") || "soft");
+  let [colorScheme, setColorScheme] = useState(ls.get("colorScheme") || "dark");
   let [tintOpen, setTintOpen] = useState(false);
   let [colorSchemeOpen, setColorSchemeOpen] = useState(false);
   let [inputValue, setInputValue] = useState(
     JSON.stringify(
-      JSON.parse(localStorage.getItem("theme-control")) || THEME_CONTROLS,
+      JSON.parse(ls.get("theme-control")) || THEME_CONTROLS,
       null,
       2
     )
@@ -186,7 +187,7 @@ export function Appearance() {
 
   useEffect(() => {
     if (tmpColor && isHexColor(tmpColor)) {
-      localStorage.setItem("theme", tmpColor);
+      ls.set("theme", tmpColor);
       setTheme(tmpColor);
 
       let palette;
@@ -194,7 +195,7 @@ export function Appearance() {
         palette = generateMaterialYouPalette(tmpColor, colorScheme);
       } else {
         let themeControls =
-          JSON.parse(localStorage.getItem("theme-control")) || THEME_CONTROLS;
+          JSON.parse(ls.get("theme-control")) || THEME_CONTROLS;
 
         palette = generateTintPalette(tmpColor, themeControls, colorScheme);
       }
@@ -250,16 +251,16 @@ export function Appearance() {
   }, [tmpColor, tint, colorScheme, inputValue]);
 
   useEffect(() => {
-    localStorage.setItem("tint", tint);
+    ls.set("tint", tint);
   }, [tint]);
 
   useEffect(() => {
-    localStorage.setItem("colorScheme", colorScheme);
+    ls.set("colorScheme", colorScheme);
   }, [colorScheme]);
 
   function submitThemeControlsChange(event) {
     event.preventDefault();
-    localStorage.setItem("theme-control", inputValue);
+    ls.set("theme-control", inputValue);
     window.location.reload();
   }
 
@@ -462,8 +463,8 @@ export function Appearance() {
               <AlertDialogAction
                 onClick={() => {
                   setColor("");
-                  localStorage.removeItem("theme");
-                  localStorage.removeItem("theme-control");
+                  ls.remove("theme");
+                  ls.remove("theme-control");
                   window.location.reload();
                 }}
               >
@@ -478,8 +479,8 @@ export function Appearance() {
 }
 
 export function Notifications() {
-  let [loading, setLoading] = useState(localStorage.getItem('notifications') === 'enabled' ? true : false)
-  let [message, setMessage] = useState(localStorage.getItem('notifications') === 'enabled' ? "Notifications enabled." : "Enable Notifications")
+  let [loading, setLoading] = useState(ls.get('notifications') === 'enabled' ? true : false)
+  let [message, setMessage] = useState(ls.get('notifications') === 'enabled' ? "Notifications enabled." : "Enable Notifications")
   let { requestNotificationPermission } = useMessageContext()
 
   return (
@@ -492,7 +493,7 @@ export function Notifications() {
           requestNotificationPermission()
             .then(data => {
               if (data.success) {
-                localStorage.setItem('notifications', 'enabled')
+                ls.set('notifications', 'enabled')
               } else {
                 setLoading(false)
               }
@@ -507,7 +508,7 @@ export function Notifications() {
         onClick={async () => {
           setMessage("Enable Notifications")
           setLoading(false)
-          localStorage.removeItem('notifications')
+          ls.remove('notifications')
         }}>
         <Icon.Unlock />
       </Button>
@@ -529,7 +530,7 @@ export function ExtraBenefits() {
   let [subEnd, setSubEnd] = useState(0)
 
   useEffect(() => {
-    get(localStorage.getItem('uuid'))
+    get(ls.get('uuid'))
       .then(data => {
         setSubLevel(data.sub_level)
         setSubEnd(data.sub_end)
@@ -563,7 +564,7 @@ export function ExtraBenefits() {
 }
 
 export function Developer() {
-  let [debugMode, setDebugMode] = useState(localStorage.getItem("debug") === "true" || false)
+  let [debugMode, setDebugMode] = useState(ls.get("debug") === "true" || false)
 
   function debugModeChange(event) {
     setDebugMode(event)
@@ -571,9 +572,9 @@ export function Developer() {
 
   useEffect(() => {
     if (debugMode) {
-      localStorage.setItem("debug", "true")
+      ls.set("debug", "true")
     } else {
-      localStorage.removeItem("debug")
+      ls.remove("debug")
     }
   }, [debugMode])
 

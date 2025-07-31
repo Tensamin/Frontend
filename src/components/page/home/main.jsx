@@ -7,6 +7,7 @@ import * as Icon from "lucide-react"
 import { endpoint } from "@/lib/endpoints"
 import { log, isUuid } from "@/lib/utils"
 import { encrypt_base64_using_pubkey } from "@/lib/encryption"
+import ls from "@/lib/localStorageManager";
 
 // Context Imports
 import { useWebSocketContext } from "@/components/context/websocket"
@@ -50,7 +51,7 @@ export function Main() {
 
                 let success = false;
 
-                await fetch(`${endpoint.user}${localStorage.getItem('uuid')}/public-key`)
+                await fetch(`${endpoint.user}${ls.get('uuid')}/public-key`)
                     .then(response => response.json())
                     .then(data => {
                         if (data.type !== "error") {
@@ -82,7 +83,7 @@ export function Main() {
 
                 if (success) {
                     await send("shared_secret_set", {
-                        message: `${localStorage.getItem('uuid')} sent ${newChatUUID} a friend request`,
+                        message: `${ls.get('uuid')} sent ${newChatUUID} a friend request`,
                         log_level: 1
                     }, {
                         receiver_id: newChatUUID,

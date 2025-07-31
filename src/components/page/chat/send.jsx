@@ -3,6 +3,9 @@ import * as Icon from "lucide-react";
 import { useState, useRef, useCallback, useEffect } from "react";
 import { toast } from "sonner";
 
+// Lib Imports
+import ls from "@/lib/localStorageManager";
+
 // Context Imports
 import { useWebSocketContext } from "@/components/context/websocket";
 import { useMessageContext } from "@/components/context/messages";
@@ -88,7 +91,7 @@ export function MessageSend() {
 
       addMessage({
         id: Math.floor(Date.now()).toString(),
-        sender: localStorage.getItem("uuid"),
+        sender: ls.get("uuid"),
         content: message,
         sendToServer: true,
       });

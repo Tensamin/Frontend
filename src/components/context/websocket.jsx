@@ -15,6 +15,7 @@ import { v7 } from "uuid"
 // Lib Imports
 import { log as logFunction } from "@/lib/utils";
 import { endpoint } from "@/lib/endpoints";
+import ls from "@/lib/localStorageManager";
 
 // Context Imports
 import { useCryptoContext } from "@/components/context/crypto";
@@ -194,7 +195,7 @@ export let WebSocketProvider = ({ children }) => {
         },
         {
           iota_id: IotaUUID,
-          user_id: localStorage.getItem('uuid'),
+          user_id: ls.get('uuid'),
           private_key_hash: privateKeyHash
         })
         .then(data => {

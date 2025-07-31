@@ -6,6 +6,9 @@ import { useEffect, useState } from "react";
 import { useDencrypt } from "use-dencrypt-effect";
 import * as Icon from "lucide-react"
 
+// Lib Imports
+import ls from "@/lib/localStorageManager";
+
 // Components
 import { Button } from "@/components/ui/button"
 
@@ -16,7 +19,7 @@ export function Loading({ message = "Loading...", error = false, allowDebugToFor
 
     useEffect(() => {
         setCoolMessage(message)
-        setDebug(localStorage.getItem("debug") === "true")
+        setDebug(ls.get("debug") === "true")
     }, [])
 
     return (

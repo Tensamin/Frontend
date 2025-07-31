@@ -6,6 +6,7 @@ import useWebSocket, { ReadyState } from "react-use-websocket";
 import { endpoint } from "@/lib/endpoints";
 import { log } from "@/lib/utils";
 import { sha256, encrypt_base64_using_aes, decrypt_base64_using_aes } from "@/lib/encryption";
+import ls from "@/lib/localStorageManager";
 
 // Context Imports
 import { useCryptoContext } from "@/components/context/crypto";
@@ -269,7 +270,7 @@ export function VoiceCall() {
 
                 case "client_connected":
                     let newUser = message.data.user_id;
-                    if (newUser !== localStorage.getItem('uuid')) {
+                    if (newUser !== ls.get('uuid')) {
                         log(
                             `${newUser}: Init P2P Connection`,
                             "debug",
@@ -278,6 +279,18 @@ export function VoiceCall() {
                         await createNewPeerConnection(newUser, true);
                     }
                     break;
+
+                case "client_closed":
+                    let disconnectedUser = message.data.user_id;
+                    let toBeClosedPeerConnection = peerConnections.current.get(disconnectedUser);
+                    toBeClosedPeerConnection.close();
+
+                    setCurrentCall((prevData) => ({
+                        ...prevData,
+                        users: prevData.users.filter(user => user !== disconnectedUser)
+                    }));
+                    break;
+
                 case "webrtc_sdp":
                     let sdp_payload_b64 = await decrypt_base64_using_aes(message.data.payload, currentCall.secret);
                     let sdp_sender = message.data.sender_id;
@@ -389,7 +402,7 @@ export function VoiceCall() {
                     type: "identification",
                     data: {
                         call_id: currentCall.id,
-                        user_id: localStorage.getItem('uuid'),
+                        user_id: ls.get('uuid'),
                         private_key_hash: privateKeyHash,
                         call_secret_sha: await sha256(currentCall.secret),
                     },

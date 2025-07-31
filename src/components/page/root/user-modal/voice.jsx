@@ -6,6 +6,7 @@ import { copyTextToClipboard } from "@/lib/utils"
 
 // Context Imports
 import { useUsersContext } from "@/components/context/users"
+import { usePageContext } from "@/components/context/page"
 
 // Components
 import { Button } from "@/components/ui/button"
@@ -14,9 +15,11 @@ import {
     TooltipContent,
     TooltipTrigger,
 } from "@/components/ui/tooltip"
+import { Card } from "@/components/ui/card"
 
 export function VoiceControls() {
     let { currentCall, setCurrentCall, stopVoiceCall } = useUsersContext();
+    let { setPage } = usePageContext();
 
     function toggleMute() {
         if (currentCall.mute) {
@@ -47,12 +50,29 @@ export function VoiceControls() {
     }
 
     return (
-        <div className="flex gap-1">
+        <Card className="flex flex-row p-2 gap-1 w-full">
+            {/* Expand */}
+            <Tooltip>
+                <TooltipTrigger asChild>
+                    <Button
+                        className="w-9 h-9"
+                        onClick={() => {
+                            setPage({ name: "voice", data: "" })
+                        }}
+                    >
+                        <Icon.Expand />
+                    </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                    <p>Expand</p>
+                </TooltipContent>
+            </Tooltip>
+
             {/* Mute Button */}
             <Tooltip>
                 <TooltipTrigger asChild>
                     <Button
-                        className={`${currentCall.mute ? "bg-destructive hover:bg-destructive/90" : ""}`}
+                        className={`w-9 h-9 ${currentCall.mute ? "bg-destructive hover:bg-destructive/90" : ""}`}
                         onClick={() => {
                             toggleMute() // der aus Rainbow Six :)
                         }}
@@ -73,7 +93,7 @@ export function VoiceControls() {
             <Tooltip>
                 <TooltipTrigger asChild>
                     <Button
-                        className={`${currentCall.deaf ? "bg-destructive hover:bg-destructive/90" : ""}`}
+                        className={`w-9 h-9 ${currentCall.deaf ? "bg-destructive hover:bg-destructive/90" : ""}`}
                         onClick={() => {
                             toggleDeaf() // der aus Rainbow Six :)
                         }}
@@ -90,27 +110,11 @@ export function VoiceControls() {
                 </TooltipContent>
             </Tooltip>
 
-            {/* Copy Invite Button */}
-            <Tooltip>
-                <TooltipTrigger asChild>
-                    <Button
-                        onClick={() => {
-                            copyTextToClipboard("```invite" + `\n${currentCall.id}\n${currentCall.secret}\n` + "```")
-                        }}
-                    >
-                        <Icon.Clipboard />
-                    </Button>
-                </TooltipTrigger>
-                <TooltipContent>
-                    <p>Copy Invite</p>
-                </TooltipContent>
-            </Tooltip>
-
             {/* Exit Button */}
             <Tooltip>
                 <TooltipTrigger asChild>
                     <Button
-                        className="bg-destructive hover:bg-destructive/90"
+                        className="w-9 h-9 bg-destructive hover:bg-destructive/90"
                         onClick={() => {
                             stopVoiceCall()
                         }}
@@ -122,6 +126,6 @@ export function VoiceControls() {
                     <p>Exit Call</p>
                 </TooltipContent>
             </Tooltip>
-        </div>
+        </Card>
     )
 }

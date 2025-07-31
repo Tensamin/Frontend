@@ -3,6 +3,9 @@
 // Package Imports
 import { useState, useEffect } from "react";
 
+// Lib Imports
+import ls from "@/lib/localStorageManager";
+
 // Context Imports
 import { useUsersContext } from "@/components/context/users";
 
@@ -28,7 +31,7 @@ export function AppSidebar(props) {
   let [avatar, setAvatar] = useState("...")
 
   useEffect(() => {
-    get(localStorage.getItem('uuid'))
+    get(ls.get('uuid'))
       .then(data => {
         setUsername(data.username)
         setDisplay(data.display)

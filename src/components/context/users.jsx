@@ -12,6 +12,7 @@ import { v7 } from "uuid"
 // Lib Imports
 import { log, getDisplayFromUsername } from "@/lib/utils";
 import { endpoint } from "@/lib/endpoints";
+import ls from "@/lib/localStorageManager";
 
 // Main
 let UsersContext = createContext();
@@ -40,8 +41,8 @@ export function UsersProvider({ children }) {
 
     let [currentCall, setCurrentCall] = useState({
         connected: false,
-        mute: localStorage.getItem('call_mute') === "true",
-        deaf: localStorage.getItem('call_deaf') === "true",
+        mute: ls.get('call_mute') === "true",
+        deaf: ls.get('call_deaf') === "true",
         id: v7(),
         secret: v7(),
         users: [],
@@ -50,8 +51,8 @@ export function UsersProvider({ children }) {
     let [forceLoad, setForceLoad] = useState(false)
 
     useEffect(() => {
-        localStorage.setItem('call_mute', currentCall.mute ? "true" : "false")
-        localStorage.setItem('call_deaf', currentCall.deaf ? "true" : "false")
+        ls.set('call_mute', currentCall.mute ? "true" : "false")
+        ls.set('call_deaf', currentCall.deaf ? "true" : "false")
     }, [currentCall.mute, currentCall.deaf])
 
     function startVoiceCall(id, secret, receiver) {

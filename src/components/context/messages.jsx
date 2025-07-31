@@ -19,6 +19,7 @@ import {
   encrypt_base64_using_aes,
   decrypt_base64_using_aes,
 } from "@/lib/encryption";
+import ls from "@/lib/localStorageManager";
 
 // Context Imports
 import { useCryptoContext } from "@/components/context/crypto";
@@ -290,7 +291,7 @@ export function MessageProvider({ children }) {
                 return {
                   id: chunk.message_time,
                   sender: chunk.sender_is_me
-                    ? localStorage.getItem("uuid")
+                    ? ls.get("uuid")
                     : receiver,
                   content: decryptedContent,
                   sendToServer: false,
@@ -347,7 +348,7 @@ export function MessageProvider({ children }) {
         send(
           "shared_secret_get",
           {
-            message: `${localStorage.getItem("uuid")} requested shared secret of ${receiver}`,
+            message: `${ls.get("uuid")} requested shared secret of ${receiver}`,
             log_level: 1,
           },
           {
@@ -388,7 +389,7 @@ export function MessageProvider({ children }) {
               await processAndAddMessage(
                 chunk.message_time,
                 chunk.sender_is_me
-                  ? localStorage.getItem("uuid")
+                  ? ls.get("uuid")
                   : receiver,
                 chunk.message_content,
               );
@@ -419,7 +420,7 @@ export function MessageProvider({ children }) {
             await send(
               "shared_secret_get",
               {
-                message: `${localStorage.getItem("uuid")} requested shared secret of ${receiver}`,
+                message: `${ls.get("uuid")} requested shared secret of ${receiver}`,
                 log_level: 0,
               },
               {

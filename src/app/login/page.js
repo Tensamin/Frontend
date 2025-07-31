@@ -9,6 +9,7 @@ import { useState } from "react";
 import { log } from "@/lib/utils"
 import { endpoint } from "@/lib/endpoints";
 import { sha256, createPasskey, encrypt_base64_using_aes } from "@/lib/encryption";
+import ls from "@/lib/localStorageManager";
 
 // Components
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -85,16 +86,16 @@ export default function LoginForm() {
                 },
               });
               encryption_value = passkey.id
-              localStorage.setItem('passkey_id', encryption_value);
+              ls.set('passkey_id', encryption_value);
             } else {
               encryption_value = await createPasskey(uuid);
             }
             
             let encrypted_private_key = await encrypt_base64_using_aes(base64_private_key, encryption_value);
             let encrypted_iota_id = await encrypt_base64_using_aes(btoa(data.data.iota_id), encryption_value);
-            localStorage.setItem('private_key', encrypted_private_key)
-            localStorage.setItem('iota_id', encrypted_iota_id)
-            localStorage.setItem('uuid', uuid)
+            ls.set('private_key', encrypted_private_key)
+            ls.set('iota_id', encrypted_iota_id)
+            ls.set('uuid', uuid)
             // Stay logged in: vanilla html
             // if (document.getElementById("stay-logged-in").checked) {
             //     document.cookie = `encryption_value=${encryption_value}; max-age=` + 30 * 24 * 60 * 60 + "; path=/; secure; samesite=strict";

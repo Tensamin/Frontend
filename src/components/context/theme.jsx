@@ -11,6 +11,7 @@ import {
 
 // Lib Imports
 import { generateTintPalette, generateMaterialYouPalette } from "@/lib/theme";
+import ls from "@/lib/localStorageManager";
 
 // Main
 let ActualTheme = createContext(null);
@@ -25,7 +26,7 @@ export function ActualThemeProvider({ children }) {
 
   useEffect(() => {
     setMounted(true);
-    let storedHex = localStorage.getItem('theme');
+    let storedHex = ls.get('theme');
     if (storedHex) {
       setCustomHex(storedHex);
     }
@@ -35,24 +36,24 @@ export function ActualThemeProvider({ children }) {
     if (!mounted) return;
 
     if (customHex) {
-      localStorage.setItem('theme', customHex);
+      ls.set('theme', customHex);
       let palette;
-      switch (localStorage.getItem('tint')) {
+      switch (ls.get('tint')) {
         case "soft":
-          palette = generateMaterialYouPalette(customHex, localStorage.getItem('colorScheme'));
+          palette = generateMaterialYouPalette(customHex, ls.get('colorScheme'));
           break;
 
         case "hard":
-          palette = generateTintPalette(customHex, null, localStorage.getItem('colorScheme'));
+          palette = generateTintPalette(customHex, null, ls.get('colorScheme'));
           break;
 
         case "hard_a":
-          palette = generateTintPalette(customHex, JSON.parse(localStorage.getItem('theme-control')), localStorage.getItem('colorScheme'));
+          palette = generateTintPalette(customHex, JSON.parse(ls.get('theme-control')), ls.get('colorScheme'));
           break;
       
         default:
-          palette = generateMaterialYouPalette(customHex, localStorage.getItem('colorScheme'));
-          localStorage.setItem('tint', 'soft')
+          palette = generateMaterialYouPalette(customHex, ls.get('colorScheme'));
+          ls.set('tint', 'soft')
           break;
       }
       
@@ -60,7 +61,7 @@ export function ActualThemeProvider({ children }) {
         document.documentElement.style.setProperty(cssVar, value);
       }
     } else {
-      localStorage.removeItem('theme');
+      ls.remove('theme');
     }
   }, [customHex, mounted]);
 

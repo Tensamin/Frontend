@@ -13,6 +13,7 @@ import { useRouter } from "next/navigation";
 // Lib Imports
 import { log } from "@/lib/utils";
 import { sha256, decrypt_base64_using_aes } from "@/lib/encryption";
+import ls from "@/lib/localStorageManager";
 
 // Components
 import { Loading } from "@/components/loading/content";
@@ -57,9 +58,9 @@ export function CryptoProvider({ children }) {
         return;
       }
 
-      let encrypted_private_key = localStorage.getItem("private_key");
-      let encrypted_iota_id = localStorage.getItem("iota_id");
-      let uuid = localStorage.getItem("uuid");
+      let encrypted_private_key = ls.get("private_key");
+      let encrypted_iota_id = ls.get("iota_id");
+      let uuid = ls.get("uuid");
 
       if (!encrypted_private_key || !encrypted_iota_id || !uuid) {
         if (window.location.pathname !== "/login") {
@@ -112,10 +113,10 @@ export function CryptoProvider({ children }) {
         retryCountRef.current += 1;
 
         if (retryCountRef.current >= MAX_PASSKEY_RETRIES) {
-          localStorage.removeItem("passkey_id");
-          localStorage.removeItem("private_key");
-          localStorage.removeItem("iota_id");
-          localStorage.removeItem("uuid");
+          ls.remove("passkey_id");
+          ls.remove("private_key");
+          ls.remove("iota_id");
+          ls.remove("uuid");
           if (isMounted) {
             router.push("/login");
             setIsInitialized(true);

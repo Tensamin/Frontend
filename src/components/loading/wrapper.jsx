@@ -4,6 +4,9 @@
 import { useState, useEffect } from "react";
 import { useRouter, usePathname } from "next/navigation";
 
+// Lib Imports
+import ls from "@/lib/localStorageManager";
+
 // Context Imports
 import { WebSocketProvider } from "@/components/context/websocket";
 import { MessageProvider } from "@/components/context/messages";
@@ -24,9 +27,9 @@ export function LoadingWrapper({ children }) {
     let pathname = usePathname();
 
     useEffect(() => {
-        let passkey_id = localStorage.getItem("passkey_id");
-        let private_key = localStorage.getItem("private_key");
-        let uuid = localStorage.getItem("uuid");
+        let passkey_id = ls.get("passkey_id");
+        let private_key = ls.get("private_key");
+        let uuid = ls.get("uuid");
 
         const authenticated = (passkey_id && private_key && uuid);
         setIsAuthenticated(authenticated);
@@ -64,7 +67,7 @@ export function LoadingWrapper({ children }) {
                     'color: red; font-size: 20px; font-weight: bold;',
                 ];
 
-            if (localStorage.getItem("debug") !== "true") {
+            if (ls.get("debug") !== "true") {
                 console.warn(warningMessage, ...styles);
                 console.log("Enabled debug mode to hide this warning.")
             }
