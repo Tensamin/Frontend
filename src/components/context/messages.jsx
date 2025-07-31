@@ -23,7 +23,7 @@ import { useEncryptionContext } from "@/components/context/encryption"
 
 // Main
 let MessageContext = createContext();
-let initialMessages = 30;
+let initialMessages = 40;
 
 // Use Context Function
 export function useMessageContext() {
@@ -144,7 +144,7 @@ export function MessageProvider({ children }) {
     setReceiverPublicKey("");
     setFailedMessages(0);
     setLoadMoreMessages(false);
-    setMessagesAmount(30);
+    setMessagesAmount(initialMessages);
     setMoreMessagesLoadedOnce(false);
     setLoadedAllMessages(false);
   }
@@ -265,7 +265,7 @@ export function MessageProvider({ children }) {
       ).then(async (data) => {
         setMoreMessagesLoadedOnce(true)
 
-        if (typeof(data.data.message_chunk) === "undefined") {
+        if (typeof (data.data.message_chunk) === "undefined") {
           setNavbarLoadingMessage("");
           updateNavbarLoading(false);
           setLoadMoreMessages(false);

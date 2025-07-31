@@ -6,7 +6,6 @@ import * as theme from "react-syntax-highlighter/dist/cjs/styles/prism";
 import * as Icon from "lucide-react";
 
 import { Button } from "@/components/ui/button"
-import { CallInvite } from "@/components/page/chat/invites";
 
 export function CodeBlock({ language, code }) {
   const [copied, setCopied] = React.useState(false);
@@ -19,9 +18,7 @@ export function CodeBlock({ language, code }) {
     }
   };
 
-  return language === "invite" ? (
-    <CallInvite data={code}/>
-  ) : (
+  return (
     <div className="relative p-3 bg-background/45 rounded-2xl border pr-11">
       <Button
         className="absolute top-0 right-0 dark:hover:bg-border m-1.5 rounded-xl"
