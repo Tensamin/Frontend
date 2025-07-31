@@ -40,7 +40,7 @@ export function AppSidebar(props) {
   }, [])
 
   return (
-    <Sidebar variant="inset" {...props}>
+    <Sidebar side={ls.get("sidebar_side") || "left"} variant="inset" {...props}>
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem className="border-1 bg-card rounded-xl">

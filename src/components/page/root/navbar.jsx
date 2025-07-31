@@ -7,6 +7,7 @@ import { useEffect, useState } from "react"
 
 // Lib Imports
 import { cn } from "@/lib/utils"
+import ls from "@/lib/localStorageManager"
 
 // Context Imports
 import { usePageContext } from "@/components/context/page"
@@ -62,12 +63,14 @@ export function Navbar() {
 
     return (
         <div className="flex-1 flex items-center p-1.5 pb-0">
-            <div
-                className={cn(
-                    "bg-sidebar hidden md:block transition-all duration-300",
-                    open ? "w-[var(--sidebar-width)]" : "w-0"
-                )}
-            />
+            {ls.get("sidebar_side") === "left" ? (
+                <div
+                    className={cn(
+                        "bg-sidebar hidden md:block transition-all duration-300",
+                        open ? "w-[var(--sidebar-width)]" : "w-0"
+                    )}
+                />
+            ) : null}
             <motion.div
                 className="bg-sidebar flex-1 flex items-center gap-3"
                 variants={containerVariants}
@@ -194,6 +197,14 @@ export function Navbar() {
                     )}
                 </AnimatePresence>
             </motion.div>
+            {ls.get("sidebar_side") === "right" ? (
+                <div
+                    className={cn(
+                        "bg-sidebar hidden md:block transition-all duration-300",
+                        open ? "w-[var(--sidebar-width)]" : "w-0"
+                    )}
+                />
+            ) : null}
         </div>
     )
 }

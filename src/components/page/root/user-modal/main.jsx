@@ -30,12 +30,11 @@ import {
 import { Skeleton } from "@/components/ui/skeleton"
 import { Badge } from "@/components/ui/badge"
 import { VoiceControls } from "@/components/page/root/user-modal/voice"
-import { VoiceCall } from "@/components/page/voice/call"
 
 // Main
 export function UserModal({ display, username, avatar, status }) {
   let [actAvatar, setAvatar] = useState(avatar)
-  let { currentCall, shouldCreateCall } = useUsersContext();
+  let { currentCall } = useUsersContext();
 
   useEffect(() => {
     setAvatar(avatar)
@@ -91,9 +90,6 @@ export function UserModal({ display, username, avatar, status }) {
       </div>
       {currentCall.connected ? (
         <VoiceControls />
-      ) : null}
-      {shouldCreateCall ? (
-        <VoiceCall />
       ) : null}
     </div>
   )
@@ -264,4 +260,70 @@ export function VoiceModal({ id }) {
       </div>
     </div>
   )
+}
+
+export function MiniUserModal({ display, username, avatar }) {
+  let [actAvatar, setAvatar] = useState(avatar)
+
+  return (
+    <div className="rounded-xl flex items-center h-7 gap-3">
+      {avatar !== "notAllowed" ? (
+        <Avatar className="bg-accent/50 w-[36px] h-[36px]">
+          {avatar !== "" ? (
+            <Image
+              className="w-auto h-auto object-fill"
+              data-slot="avatar-image"
+              width={36}
+              height={36}
+              src={actAvatar}
+              alt=""
+              onError={() => {
+                setAvatar("")
+              }}
+            />
+          ) : null}
+          <AvatarFallback className="text-[16px]">
+            {convertDisplayNameToInitials(username)}
+          </AvatarFallback>
+        </Avatar>
+      ) : null}
+      <p className="text-[15px] overflow-hidden whitespace-nowrap text-overflow-ellipsis">{display}</p>
+    </div>
+  );
+}
+
+export function MiniMiniUserModal({ display, username, avatar }) {
+  let [actAvatar, setAvatar] = useState(avatar)
+
+  return (
+    <div className="rounded-xl flex items-center h-5.5 w-5.5 m-1">
+      <Tooltip>
+        <TooltipTrigger>
+          {avatar !== "notAllowed" ? (
+            <Avatar className="bg-accent/50 w-[30px] h-[30px] border-1">
+              {avatar !== "" ? (
+                <Image
+                  className="w-auto h-auto object-fill"
+                  data-slot="avatar-image"
+                  width={30}
+                  height={30}
+                  src={actAvatar}
+                  alt=""
+                  onError={() => {
+                    setAvatar("")
+                  }}
+                />
+              ) : null}
+              <AvatarFallback>
+                {convertDisplayNameToInitials(username)}
+              </AvatarFallback>
+            </Avatar>
+          ) : null}
+        </TooltipTrigger>
+        <TooltipContent>
+          <p>{display}</p>
+        </TooltipContent>
+      </Tooltip>
+    </div>
+  );
 }

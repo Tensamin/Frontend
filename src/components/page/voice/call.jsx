@@ -12,9 +12,6 @@ import { useCryptoContext } from "@/components/context/crypto";
 import { useUsersContext } from "@/components/context/users";
 import { useEncryptionContext } from "@/components/context/encryption";
 
-// Components
-import { VoiceModal } from "@/components/page/root/user-modal/main";
-
 // Main
 export function VoiceCall() {
     let { privateKeyHash } = useCryptoContext();

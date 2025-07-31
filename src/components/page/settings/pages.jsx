@@ -182,6 +182,7 @@ export function Appearance() {
       2
     )
   );
+  let [sidebarPositionSwitch, setSidebarPositionSwitch] = useState(ls.get("sidebar_side") === "right")
 
   let { setTheme } = useTheme();
 
@@ -253,6 +254,14 @@ export function Appearance() {
   useEffect(() => {
     ls.set("tint", tint);
   }, [tint]);
+
+  useEffect(() => {
+    if (sidebarPositionSwitch) {
+      ls.set("sidebar_side", "right")
+    } else {
+      ls.set("sidebar_side", "left")
+    }
+  }, [sidebarPositionSwitch])
 
   useEffect(() => {
     ls.set("colorScheme", colorScheme);
@@ -473,6 +482,19 @@ export function Appearance() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+      </div>
+      <br />
+      <p className="text-xl font-bold">Layout Controls</p>
+      <br />
+      <div className="flex gap-2">
+        <Switch
+          id="sidebar-right-switch"
+          checked={sidebarPositionSwitch}
+          onCheckedChange={setSidebarPositionSwitch}
+        />
+        <Label
+          htmlFor="sidebar-right-switch"
+        >Align Sidebar Right (Reload to see changes)</Label>
       </div>
     </div>
   );

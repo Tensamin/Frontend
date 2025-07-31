@@ -3,9 +3,13 @@
 // Package Imports
 import { useState, useEffect } from "react";
 
+// Lib Imports
+import ls from "@/lib/localStorageManager"
+
 // Context Imports
 import { usePageContext } from "@/components/context/page";
 import { ActualThemeProvider } from "@/components/context/theme";
+import { useUsersContext } from "@/components/context/users";
 
 // Components
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
@@ -16,10 +20,12 @@ import { Main as ChatMain } from "@/components/page/chat/main"
 import { Main as HomeMain } from "@/components/page/home/main"
 import { Main as SettingsMain } from "@/components/page/settings/main"
 import { Main as VoiceMain } from "@/components/page/voice/main"
+import { VoiceCall } from "@/components/page/voice/call"
 
 export function Page() {
     let [isVisible, setIsVisible] = useState(false);
     let { page } = usePageContext();
+    let { shouldCreateCall } = useUsersContext();
 
     useEffect(() => {
         const timer = setTimeout(() => {
@@ -38,7 +44,9 @@ export function Page() {
                     </div>
 
                     <div className="flex flex-1 overflow-hidden">
-                        <AppSidebar />
+                        {ls.get("sidebar_side") === "left" ? (
+                            <AppSidebar />
+                        ) : null}
 
                         <SidebarInset
                             className="border-1 border-card rounded-4xl m-2 flex flex-col flex-1 overflow-hidden"
@@ -58,10 +66,17 @@ export function Page() {
                                 ) : null}
                             </div>
                         </SidebarInset>
+
+                        {ls.get("sidebar_side") === "right" ? (
+                            <AppSidebar />
+                        ) : null}
                     </div>
                 </div>
             </SidebarProvider>
             <Toaster />
+            {shouldCreateCall ? (
+                <VoiceCall />
+            ) : null}
         </ActualThemeProvider>
     )
 };
