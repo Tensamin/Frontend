@@ -75,14 +75,7 @@ async function decrypt_base64_using_aes(base64EncryptedString, password) {
 }
 
 async function encrypt_base64_using_pubkey(base64String, pemPublicKey) {
-  // Process public key
-  let pemHeader = "-----BEGIN PUBLIC KEY-----";
-  let pemFooter = "-----END PUBLIC KEY-----";
-  let pemContents = pemPublicKey
-    .replace(pemHeader, "")
-    .replace(pemFooter, "")
-    .replace(/\s+/g, "");
-  let binaryDer = Uint8Array.from(atob(pemContents), (c) =>
+  let binaryDer = Uint8Array.from(atob(pemPublicKey), (c) =>
     c.charCodeAt(0)
   );
 
@@ -211,21 +204,53 @@ self.onmessage = async function (e) {
 
   switch (type) {
     case "encrypt_base64_using_aes":
-      self.postMessage({ id: id, result: await encrypt_base64_using_aes(data, key) });
+      let result1;
+
+      try {
+        result1 = await encrypt_base64_using_aes(data, key)
+      } catch (err) {
+        result1 = err.message
+      }
+
+      self.postMessage({ id: id, result: result1 });
       break;
 
     case "decrypt_base64_using_aes":
-      self.postMessage({ id: id, result: await decrypt_base64_using_aes(data, key) });
+      let result2;
+
+      try {
+        result2 = await decrypt_base64_using_aes(data, key)
+      } catch (err) {
+        result2 = err.message
+      }
+
+      self.postMessage({ id: id, result: result2 });
       break;
 
     case "encrypt_base64_using_pubkey":
-      self.postMessage({ id: id, result: await encrypt_base64_using_pubkey(data, key) });
+      let result3;
+
+      try {
+        result3 = await encrypt_base64_using_pubkey(data, key)
+      } catch (err) {
+        result3 = err.message
+      }
+
+      self.postMessage({ id: id, result: result3 });
       break;
 
     case "decrypt_base64_using_privkey":
-      self.postMessage({ id: id, result: await decrypt_base64_using_privkey(data, key) });
+      let result4;
+
+      try {
+        result4 = await decrypt_base64_using_privkey(data, key)
+      } catch (err) {
+        result4 = err.message
+      }
+
+      self.postMessage({ id: id, result: result4 });
       break;
-  
+
     default:
       break;
   }

@@ -165,6 +165,7 @@ export function MessageProvider({ children }) {
       });
     } catch (err) {
       let stringErr = err.toString();
+      console.log("HERE: " + stringErr)
       if (
         stringErr === "OperationError" ||
         stringErr ===
