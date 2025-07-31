@@ -11,7 +11,7 @@ import { log, sha256, createPasskey } from "@/lib/utils";
 import ls from "@/lib/localStorageManager";
 
 // Context Imports
-import { useEncryptionContext } from "@/components/context/encryption"
+import { useEncryptionContext, EncryptionProvider } from "@/components/context/encryption";
 
 // Components
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -36,7 +36,15 @@ async function readFileContent(file) {
   });
 }
 
-export default function LoginForm() {
+export default function EncryptionWrapper() {
+  return (
+    <EncryptionProvider>
+      <LoginForm />
+    </EncryptionProvider>
+  )
+}
+
+export function LoginForm() {
   let [formData, setFormData] = useState({ uuid: "", private_key: null, });
   let [isLoading, setIsLoading] = useState(false);
   let [useExistingPasskey, setUseExistingPasskey] = useState(false);
