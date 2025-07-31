@@ -108,17 +108,19 @@ export function SmallUserModal({ display, username, avatar, status, state, showI
         <div className="flex-shrink-0">
           <div className="relative w-[27px] h-[27px] mb-2">
             <Avatar className="bg-accent/50">
-              <Image
-                className="w-auto h-auto object-fill"
-                data-slot="avatar-image"
-                width={36}
-                height={36}
-                src={actAvatar}
-                alt=""
-                onError={() => {
-                  setAvatar("")
-                }}
-              />
+              {avatar !== "" ? (
+                <Image
+                  className="w-auto h-auto object-fill"
+                  data-slot="avatar-image"
+                  width={36}
+                  height={36}
+                  src={actAvatar}
+                  alt=""
+                  onError={() => {
+                    setAvatar("")
+                  }}
+                />
+              ) : null}
               <AvatarFallback>
                 {convertDisplayNameToInitials(username)}
               </AvatarFallback>

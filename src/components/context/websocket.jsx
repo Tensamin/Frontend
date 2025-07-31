@@ -80,7 +80,7 @@ export let WebSocketProvider = ({ children }) => {
         pendingRequests.current.delete(message.id);
 
         if (message.type !== 'error' || !identified) {
-          resolve(identified ? message.data : message);
+          resolve(message);
         } else {
           reject(new Error(`Received unknown response type '${message.type}' for request ID '${message.id}'.`));
         }
@@ -171,7 +171,7 @@ export let WebSocketProvider = ({ children }) => {
         ).then(data => {
           let newTime = Date.now()
           setClientPing(newTime - time)
-          setIotaPing(data.ping_iota || "?")
+          setIotaPing(data.data.ping_iota || "?")
         })
           .catch(err => {
             logFunction(err.message, "info")

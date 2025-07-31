@@ -267,13 +267,13 @@ export function MessageProvider({ children }) {
       ).then(async (data) => {
         setMoreMessagesLoadedOnce(true)
 
-        if (typeof(data.message_chunk) === "undefined") {
+        if (typeof(data.data.message_chunk) === "undefined") {
           setNavbarLoadingMessage("");
           updateNavbarLoading(false);
           setLoadMoreMessages(false);
           setLoadedAllMessages(true);
         } else {
-          let sortedChunk = [...data.message_chunk].sort(
+          let sortedChunk = [...data.data.message_chunk].sort(
             (a, b) => a.message_time - b.message_time,
           );
 
@@ -356,7 +356,7 @@ export function MessageProvider({ children }) {
         ).then(async (data) => {
           setSharedSecret(
             await decrypt_base64_using_privkey(
-              data.shared_secret_own,
+              data.data.shared_secret_own,
               privateKey,
             ),
           );
@@ -379,7 +379,7 @@ export function MessageProvider({ children }) {
             message_amount: initialMessages,
           },
         ).then(async (data) => {
-          let sortedChunk = [...data.message_chunk].sort(
+          let sortedChunk = [...data.data.message_chunk].sort(
             (a, b) => a.message_time - b.message_time,
           );
 
@@ -427,7 +427,7 @@ export function MessageProvider({ children }) {
               },
             ).then(async (data) => {
               tmpSharedSecret = await decrypt_base64_using_privkey(
-                data.shared_secret_own,
+                data.data.shared_secret_own,
                 privateKey,
               );
             });

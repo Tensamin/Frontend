@@ -62,16 +62,12 @@ export function CallInvite({ data }) {
                     call_secret_sha: await sha256(splitData[1])
                 })
                     .then(data => {
-                        if (data.type !== "error") {
-                            setCallState(data.call_state)
-                            if (data.call_state === "active") {
-                                setConnectedUsers(data.user_ids)
-                                setStartDate(data.start_date)
-                            } else if (data.call_state === "inactive") {
-                                setEndDate(data.end_date)
-                            }
-                        } else {
-                            log(data.log.message, "error")
+                        setCallState(data.data.call_state)
+                        if (data.data.call_state === "active") {
+                            setConnectedUsers(data.data.user_ids)
+                            setStartDate(data.data.start_date)
+                        } else if (data.data.call_state === "inactive") {
+                            setEndDate(data.data.end_date)
                         }
                         setLoading(false);
                     })

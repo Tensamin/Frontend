@@ -39,16 +39,11 @@ export function Chats() {
         message: "Getting all chats",
       }, {})
         .then((data) => {
-          if (data.type !== "error") {
-            let sortedChats = data.user_ids.sort(
-              (a, b) => b.last_message_at - a.last_message_at
-            );
-            setChatsArray(sortedChats);
-            setLoading(false);
-          } else {
-            log(data.log.message, "showError");
-            setLoading(false);
-          }
+          let sortedChats = data.data.user_ids.sort(
+            (a, b) => b.last_message_at - a.last_message_at
+          );
+          setChatsArray(sortedChats);
+          setLoading(false);
         });
     }
   }, [connected, identified]);
