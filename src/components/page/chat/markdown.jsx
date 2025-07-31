@@ -3,7 +3,6 @@ import React from "react";
 
 // Components
 import { CodeBlock } from "@/components/ui/code-block";
-import { CallInvite } from "@/components/page/chat/invites"
 
 // Main
 
