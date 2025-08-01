@@ -27,7 +27,7 @@ import {
 import { Button } from "@/components/ui/button"
 
 export function GettingCalled() {
-    let { gettingCalledData, gettingCalled, setGettingCalled, get, startVoiceCall } = useUsersContext();
+    let { gettingCalledData, gettingCalled, setGettingCalled, get, startVoiceCall, stopVoiceCall } = useUsersContext();
 
     let [sender_id, setSenderId] = useState("");
     let [call_id, setCallId] = useState("");
@@ -77,7 +77,8 @@ export function GettingCalled() {
                 <div className="flex gap-5">
                     <Button
                         className="size-20 rounded-3xl"
-                        onClick={() => {
+                        onClick={async () => {
+                            await stopVoiceCall();
                             startVoiceCall(call_id, call_secret);
                             setGettingCalled(false);
                         }}

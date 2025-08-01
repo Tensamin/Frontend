@@ -47,7 +47,7 @@ let itemVariants = {
 // Main
 export function Navbar() {
     let { sidebarRightSide } = useThemeProvider();
-    let { get, startVoiceCall, currentCall } = useUsersContext();
+    let { get, startVoiceCall, stopVoiceCall } = useUsersContext();
     let { open } = useSidebar();
     let { setPage } = usePageContext();
     let { failedMessages, navbarLoading, navbarLoadingMessage, receiver } = useMessageContext();
@@ -194,21 +194,8 @@ export function Navbar() {
                                 className="w-9 h-9"
                                 variant="outline"
                                 onClick={async () => {
-                                    await startVoiceCall(undefined, undefined)
-                                    send("call_invite", {
-                                        message: `Invited ${receiver} to the call ${currentCall.receiver}`,
-                                        log_level: 0,
-                                    }, {
-                                        receiver_id: receiver,
-                                        call_id: currentCall.id,
-                                        call_secret: await encrypt_base64_using_pubkey(btoa(currentCall.secret), await get(receiver).then(a => {return a.public_key})),
-                                        call_secret_sha: await sha256(currentCall.secret),
-                                    })
-                                    .then(data => {
-                                        if (data.type === "error") {
-                                            log(data.log.message, "showError")
-                                        }
-                                    })
+                                    await stopVoiceCall();
+                                    startVoiceCall(undefined, undefined, true)
                                 }}
                             >
                                 <Icon.PhoneCall />

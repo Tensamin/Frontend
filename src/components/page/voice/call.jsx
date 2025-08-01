@@ -11,12 +11,14 @@ import ls from "@/lib/localStorageManager";
 import { useCryptoContext } from "@/components/context/crypto";
 import { useUsersContext } from "@/components/context/users";
 import { useEncryptionContext } from "@/components/context/encryption";
+import { useMessageContext } from "@/components/context/messages";
 
 // Main
 export function VoiceCall() {
     let { privateKeyHash } = useCryptoContext();
-    let { currentCall, setCurrentCall, ownUuid } = useUsersContext();
-    let { encrypt_base64_using_aes, decrypt_base64_using_aes } =
+    let { currentCall, setCurrentCall, ownUuid, get } = useUsersContext();
+    let { receiver } = useMessageContext();
+    let { encrypt_base64_using_aes, decrypt_base64_using_aes, encrypt_base64_using_pubkey } =
         useEncryptionContext();
 
     let peerConnections = useRef(new Map());
@@ -238,12 +240,21 @@ export function VoiceCall() {
         }));
     }, [readyState]);
 
+    // Update connected users array
     useEffect(() => {
         setCurrentCall((prevData) => ({
             ...prevData,
             users: connectedPeers,
         }));
     }, [connectedPeers]);
+
+    // Update indentification
+    useEffect(() => {
+        setCurrentCall((prevData) => ({
+            ...prevData,
+            identified: identified,
+        }));
+    }, [identified]);
 
     // Get Mic as soon as voice call loads
     useEffect(() => {
@@ -434,15 +445,29 @@ export function VoiceCall() {
                 "Voice WebSocket:",
             );
             async function asyncSend() {
-                send({
-                    type: "identification",
-                    data: {
-                        call_id: currentCall.id,
-                        user_id: ownUuid,
-                        private_key_hash: privateKeyHash,
-                        call_secret_sha: await sha256(currentCall.secret),
-                    },
-                });
+                if (currentCall.invite) {
+                    send({
+                        type: "identification",
+                        data: {
+                            call_id: currentCall.id,
+                            user_id: ownUuid,
+                            receiver_id: receiver,
+                            private_key_hash: privateKeyHash,
+                            call_secret: await encrypt_base64_using_pubkey(btoa(currentCall.secret), await get(receiver).then(a => { return a.public_key })),
+                            call_secret_sha: await sha256(currentCall.secret),
+                        },
+                    });
+                } else {
+                    send({
+                        type: "identification",
+                        data: {
+                            call_id: currentCall.id,
+                            user_id: ownUuid,
+                            private_key_hash: privateKeyHash,
+                            call_secret_sha: await sha256(currentCall.secret),
+                        },
+                    });
+                }
             }
             asyncSend();
         }

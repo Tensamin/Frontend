@@ -38,6 +38,7 @@ export function UsersProvider({ children }) {
 	let [gettingCalledData, setGettingCalledData] = useState({});
 	let [forceLoad, setForceLoad] = useState(false);
 	let [currentCall, setCurrentCall] = useState({
+		invite: false,
 		connected: false,
 		mute: ls.get("call_mute") === "true",
 		deaf: ls.get("call_deaf") === "true",
@@ -45,43 +46,57 @@ export function UsersProvider({ children }) {
 		secret: v7(),
 		users: [],
 	});
-	const [callConnectionResolver, setCallConnectionResolver] =
-		useState(null);
+	let [newCallConnectionResolver, setNewCallConnectionResolver] = useState(null);
+	let [stopCallConnectionResolver, setStopCallConnectionResolver] = useState(null);
 
 	useEffect(() => {
 		ls.set("call_mute", currentCall.mute ? "true" : "false");
 		ls.set("call_deaf", currentCall.deaf ? "true" : "false");
 	}, [currentCall.mute, currentCall.deaf]);
 
-	// Effect to resolve the connection promise when the call connects
 	useEffect(() => {
-		if (currentCall.connected && callConnectionResolver) {
-			callConnectionResolver();
-			setCallConnectionResolver(null);
+		if (currentCall.connected && currentCall.identified && newCallConnectionResolver) {
+			newCallConnectionResolver();
+			setNewCallConnectionResolver(null);
 		}
-	}, [currentCall.connected, callConnectionResolver]);
+	}, [currentCall.connected, currentCall.identified, newCallConnectionResolver]);
 
-	async function startVoiceCall(id, secret) {
-		const connectionPromise = new Promise((resolve) => {
-			// Store the resolver function in state so the effect can call it
-			setCallConnectionResolver(() => resolve);
+	useEffect(() => {
+		if (!currentCall.connected && stopCallConnectionResolver) {
+			stopCallConnectionResolver();
+			setStopCallConnectionResolver(null);
+		}
+	}, [currentCall.connected, currentCall.identified, stopCallConnectionResolver]);
+
+	async function startVoiceCall(id, secret, invite = false) {
+		let connectionPromise = new Promise((resolve) => {
+			setNewCallConnectionResolver(() => resolve);
 		});
 
 		if (typeof id !== "undefined" && typeof secret !== "undefined") {
 			setCurrentCall((prevData) => ({
 				...prevData,
+				invite: invite,
 				id: id,
 				secret: secret,
+			}));
+		} else {
+			setCurrentCall((prevData) => ({
+				...prevData,
+				invite: invite,
 			}));
 		}
 
 		setShouldCreateCall(true);
 
-		// Wait until the useEffect resolves the promise
 		await connectionPromise;
 	}
 
-	function stopVoiceCall() {
+	async function stopVoiceCall() {
+		let connectionPromise = new Promise((resolve) => {
+			setStopCallConnectionResolver(() => resolve);
+		});
+
 		setShouldCreateCall(false);
 		setCurrentCall((prevCall) => ({
 			...prevCall,
@@ -90,6 +105,8 @@ export function UsersProvider({ children }) {
 			secret: v7(),
 			users: [],
 		}));
+
+		await connectionPromise;
 	}
 
 	function getUserState(uuid) {
