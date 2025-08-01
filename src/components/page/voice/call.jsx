@@ -16,7 +16,7 @@ import { useMessageContext } from "@/components/context/messages";
 // Main
 export function VoiceCall() {
     let { privateKeyHash } = useCryptoContext();
-    let { currentCall, setCurrentCall, ownUuid, get } = useUsersContext();
+    let { currentCall, setCurrentCall, currentCallStream, ownUuid, get } = useUsersContext();
     let { receiver } = useMessageContext();
     let { encrypt_base64_using_aes, decrypt_base64_using_aes, encrypt_base64_using_pubkey } =
         useEncryptionContext();

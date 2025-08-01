@@ -37,12 +37,17 @@ export function UsersProvider({ children }) {
 	let [gettingCalled, setGettingCalled] = useState(false);
 	let [gettingCalledData, setGettingCalledData] = useState({});
 	let [forceLoad, setForceLoad] = useState(false);
+	let [currentCallStream, setCurrentCallStream] = useState({
+		active: false,
+		audio: false,
+		resolution: "720",
+		refresh: "30",
+	})
 	let [currentCall, setCurrentCall] = useState({
 		invite: false,
 		connected: false,
 		mute: ls.get("call_mute") === "true",
 		deaf: ls.get("call_deaf") === "true",
-		active_stream: true,
 		id: v7(),
 		secret: v7(),
 		users: [],
@@ -203,6 +208,8 @@ export function UsersProvider({ children }) {
 				chatsArray,
 				setChatsArray,
 				makeChatTop,
+				currentCallStream,
+				setCurrentCallStream,
 				currentCall,
 				setCurrentCall,
 				shouldCreateCall,
