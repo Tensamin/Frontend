@@ -45,7 +45,7 @@ export function Page() {
                     </div>
 
                     <div className="flex flex-1 overflow-hidden">
-                        {ls.get("sidebar_side") === "left" ? (
+                        {ls.get("sidebar_side") !== "right" ? (
                             <AppSidebar />
                         ) : null}
 

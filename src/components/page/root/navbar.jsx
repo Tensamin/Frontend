@@ -63,7 +63,7 @@ export function Navbar() {
 
     return (
         <div className="flex-1 flex items-center p-1.5 pb-0">
-            {ls.get("sidebar_side") === "left" ? (
+            {ls.get("sidebar_side") !== "right" ? (
                 <div
                     className={cn(
                         "bg-sidebar hidden md:block transition-all duration-300",
