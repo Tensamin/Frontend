@@ -42,6 +42,7 @@ export function UsersProvider({ children }) {
 		connected: false,
 		mute: ls.get("call_mute") === "true",
 		deaf: ls.get("call_deaf") === "true",
+		active_stream: true,
 		id: v7(),
 		secret: v7(),
 		users: [],
