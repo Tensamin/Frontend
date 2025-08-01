@@ -17,24 +17,31 @@ import { Switch } from "@/components/ui/switch"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import {
-    Command,
-    CommandEmpty,
-    CommandGroup,
-    CommandInput,
-    CommandItem,
-    CommandList,
-    CommandSeparator,
-} from "@/components/ui/command"
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuGroup,
+    DropdownMenuItem,
+    DropdownMenuLabel,
+    DropdownMenuPortal,
+    DropdownMenuSeparator,
+    DropdownMenuShortcut,
+    DropdownMenuSub,
+    DropdownMenuSubContent,
+    DropdownMenuSubTrigger,
+    DropdownMenuTrigger,
+    DropdownMenuRadioGroup,
+    DropdownMenuRadioItem,
+} from "@/components/ui/dropdown-menu"
 import {
     Tooltip,
     TooltipContent,
     TooltipTrigger,
 } from "@/components/ui/tooltip"
 import {
-    Popover,
-    PopoverContent,
-    PopoverTrigger,
-} from "@/components/ui/popover";
+    RadioGroup,
+    RadioGroupItem,
+} from "@/components/ui/radio-group"
+import { Checkbox } from "@/components/ui/checkbox"
 import { MiniMiniUserModal } from "@/components/page/root/user-modal/main"
 import { Bouncy } from 'ldrs/react'
 import 'ldrs/react/Bouncy.css'
@@ -122,8 +129,8 @@ export function VoiceControls() {
                         {/* Stream */}
                         <div>
                             {currentCall.active_stream ? (
-                                <Popover>
-                                    <PopoverTrigger>
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger>
                                         <Tooltip delayDuration={2000}>
                                             <TooltipTrigger asChild>
                                                 <Button
@@ -139,45 +146,90 @@ export function VoiceControls() {
                                                 <p>Stream</p>
                                             </TooltipContent>
                                         </Tooltip>
-                                    </PopoverTrigger>
-                                    <PopoverContent className="p-0 border-0">
-                                        <Command className="rounded-lg border shadow-md">
-                                            <CommandInput placeholder="Type a command or search..." />
-                                            <CommandList>
-                                                <CommandEmpty>No results found.</CommandEmpty>
-                                                <CommandGroup heading="Suggestions">
-                                                    <CommandItem>
-                                                        <Icon.Calendar />
-                                                        <span>Calendar</span>
-                                                    </CommandItem>
-                                                    <CommandItem>
-                                                        <Icon.Smile />
-                                                        <span>Search Emoji</span>
-                                                    </CommandItem>
-                                                    <CommandItem disabled>
-                                                        <Icon.Calculator />
-                                                        <span>Calculator</span>
-                                                    </CommandItem>
-                                                </CommandGroup>
-                                                <CommandSeparator />
-                                                <CommandGroup heading="Settings">
-                                                    <CommandItem>
-                                                        <Icon.User />
-                                                        <span>Profile</span>
-                                                    </CommandItem>
-                                                    <CommandItem>
-                                                        <Icon.CreditCard />
-                                                        <span>Billing</span>
-                                                    </CommandItem>
-                                                    <CommandItem>
-                                                        <Icon.Settings />
-                                                        <span>Settings</span>
-                                                    </CommandItem>
-                                                </CommandGroup>
-                                            </CommandList>
-                                        </Command>
-                                    </PopoverContent>
-                                </Popover>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent>
+                                        <DropdownMenuGroup heading="Actions">
+                                            <DropdownMenuItem>
+                                                <Icon.Calendar />
+                                                <span>Calendar</span>
+                                            </DropdownMenuItem>
+                                            <DropdownMenuItem>
+                                                <Icon.Smile />
+                                                <span>Search Emoji</span>
+                                            </DropdownMenuItem>
+                                            <DropdownMenuItem disabled>
+                                                <Icon.Calculator />
+                                                <span>Calculator</span>
+                                            </DropdownMenuItem>
+                                        </DropdownMenuGroup>
+                                        <DropdownMenuSeparator />
+                                        <DropdownMenuGroup heading="Controls">
+                                            <DropdownMenuItem>
+                                                <Checkbox id="stream-audio" />
+                                                <Label htmlFor="stream-audio" className="font-normal text-sm" >Stream Audio</Label>
+                                            </DropdownMenuItem>
+                                            <DropdownMenuSub>
+                                                <DropdownMenuSubTrigger>
+                                                    <Icon.MonitorCog id="change-quality" size={18} />
+                                                    <Label htmlFor="change-quality" className="font-normal text-sm" >Change Quality</Label>
+                                                    <Icon.ChevronRightIcon />
+                                                </DropdownMenuSubTrigger>
+                                                <DropdownMenuPortal>
+                                                    <DropdownMenuSubContent>
+                                                        <DropdownMenuGroup>
+                                                            <RadioGroup className="gap-0.5">
+                                                                <DropdownMenuItem className="flex items-center gap-2">
+                                                                    <RadioGroupItem value="15" id="15" />
+                                                                    <Label className="w-full" htmlFor="15">15</Label>
+                                                                </DropdownMenuItem>
+                                                                <DropdownMenuItem className="flex items-center gap-2">
+                                                                    <RadioGroupItem value="30" id="30" />
+                                                                    <Label className="w-full" htmlFor="30">30</Label>
+                                                                </DropdownMenuItem>
+                                                                <DropdownMenuItem className="flex items-center gap-2">
+                                                                    <RadioGroupItem value="60" id="60" />
+                                                                    <Label className="w-full" htmlFor="60">60</Label>
+                                                                </DropdownMenuItem>
+                                                                <DropdownMenuItem className="flex items-center gap-2">
+                                                                    <RadioGroupItem value="120" id="120" />
+                                                                    <Label className="w-full" htmlFor="120">120</Label>
+                                                                    <Icon.Gem />
+                                                                </DropdownMenuItem>
+                                                            </RadioGroup>
+                                                        </DropdownMenuGroup>
+                                                        <DropdownMenuSeparator />
+                                                        <DropdownMenuGroup>
+                                                            <RadioGroup className="gap-0.5">
+                                                                <DropdownMenuItem className="flex items-center gap-2">
+                                                                    <RadioGroupItem value="480" id="480" />
+                                                                    <Label className="w-full" htmlFor="480">480</Label>
+                                                                </DropdownMenuItem>
+                                                                <DropdownMenuItem className="flex items-center gap-2">
+                                                                    <RadioGroupItem value="720" id="720" />
+                                                                    <Label className="w-full" htmlFor="720">720</Label>
+                                                                </DropdownMenuItem>
+                                                                <DropdownMenuItem className="flex items-center gap-2">
+                                                                    <RadioGroupItem value="1080" id="1080" />
+                                                                    <Label className="w-full" htmlFor="1080">1080 </Label>
+                                                                    <Icon.Gem />
+                                                                </DropdownMenuItem>
+                                                                <DropdownMenuItem className="flex items-center gap-2">
+                                                                    <RadioGroupItem value="2560" id="2560" />
+                                                                    <Label className="w-full" htmlFor="2560">2560 </Label>
+                                                                    <Icon.Gem />
+                                                                </DropdownMenuItem>
+                                                            </RadioGroup>
+                                                        </DropdownMenuGroup>
+                                                    </DropdownMenuSubContent>
+                                                </DropdownMenuPortal>
+                                            </DropdownMenuSub>
+                                            <DropdownMenuItem htmlFor="change-screen">
+                                                <Icon.ScreenShare id="change-screen" />
+                                                <Label htmlFor="change-screen" className="font-normal text-sm" >Change Window</Label>
+                                            </DropdownMenuItem>
+                                        </DropdownMenuGroup>
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
                             ) : (
                                 <Tooltip delayDuration={2000}>
                                     <TooltipTrigger asChild>
