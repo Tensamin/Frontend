@@ -1,7 +1,5 @@
 // Package Imports
-import { useRef, useEffect, useState } from "react";
-import { Ring } from "ldrs/react";
-import "ldrs/react/Ring.css";
+import { useRef, useEffect, useState, useLayoutEffect } from "react";
 
 // Context Imports
 import { useMessageContext } from "@/components/context/messages";
@@ -14,55 +12,71 @@ import { MessageSend } from "@/components/page/chat/send";
 // Main
 export function Main({ data }) {
   let containerRef = useRef(null);
-  let { messages, resetReceiver, navbarLoading, setLoadMoreMessages, moreMessagesLoadedOnce, loadedAllMessages, noMessageWithUser } = useMessageContext();
+  let prevScrollHeightRef = useRef(null);
+
+  let {
+    messages,
+    resetReceiver,
+    navbarLoading,
+    setLoadMoreMessages,
+    moreMessagesLoadedOnce,
+    loadedAllMessages,
+    noMessageWithUser,
+  } = useMessageContext();
 
   useEffect(() => {
     resetReceiver(data);
   }, [data]);
 
-  let messagesMap = new Map();
-  messages.forEach((message) => {
-    messagesMap.set(message.id, message);
-  });
+  useLayoutEffect(() => {
+    let container = containerRef.current;
+    if (!container) return;
 
-  useEffect(() => {
-    if (!moreMessagesLoadedOnce) {
-      let container = containerRef.current;
-      if (container) {
-        container.scrollTop = container.scrollHeight;
-      }
+    if (prevScrollHeightRef.current !== null) {
+      let scrollOffset = container.scrollHeight - prevScrollHeightRef.current;
+      container.scrollTop = scrollOffset;
+
+      prevScrollHeightRef.current = null;
+    } else if (!moreMessagesLoadedOnce && !navbarLoading) {
+      container.scrollTop = container.scrollHeight;
     }
-  }, [messages, navbarLoading]);
+  }, [messages, navbarLoading, moreMessagesLoadedOnce]);
 
   useEffect(() => {
     let container = containerRef.current;
-    if (container) {
-      const handleScroll = () => {
-        if (container.scrollTop === 0) {
-          setLoadMoreMessages(true)
-        }
-      };
+    if (!container) return;
 
-      container.addEventListener("scroll", handleScroll);
+    let handleScroll = () => {
+      if (
+        container.scrollTop < 5 &&
+        !navbarLoading &&
+        !loadedAllMessages &&
+        !noMessageWithUser
+      ) {
+        
+        prevScrollHeightRef.current = container.scrollHeight;
+        setLoadMoreMessages(true);
+      }
+    };
 
-      return () => {
-        container.removeEventListener("scroll", handleScroll);
-      };
-    }
-  }, []);
+    container.addEventListener("scroll", handleScroll);
+    return () => container.removeEventListener("scroll", handleScroll);
+  }, [navbarLoading, loadedAllMessages, noMessageWithUser, setLoadMoreMessages]);
 
   return (
-    <div className="w-full rounded-xl h-full flex flex-col gap-2">
+    <div className="flex h-full w-full flex-col gap-2 rounded-xl">
       <Card
-        className="flex items-center font-normal flex-col overflow-y-auto flex-grow gap-0 px-2.5 py-0"
+        className="flex flex-grow flex-col items-center gap-0 overflow-y-auto px-2.5 py-0 font-normal"
         ref={containerRef}
       >
+
         {loadedAllMessages && !noMessageWithUser ? (
           <p className="p-2 text-sm">Loaded all messages.</p>
         ) : null}
         {noMessageWithUser ? (
           <p className="p-2 text-sm">You have no messages with this user.</p>
         ) : null}
+
         {navbarLoading ? (
           <>
             {messages.map((message) => (
