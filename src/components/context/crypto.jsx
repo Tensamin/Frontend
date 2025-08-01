@@ -61,9 +61,9 @@ export function CryptoProvider({ children }) {
         return;
       }
 
-      let encrypted_private_key = ls.get("private_key");
-      let encrypted_iota_id = ls.get("iota_id");
-      let uuid = ls.get("uuid");
+      let encrypted_private_key = ls.get("auth_private_key");
+      let encrypted_iota_id = ls.get("auth_iota_id");
+      let uuid = ls.get("auth_uuid");
 
       if (!encrypted_private_key || !encrypted_iota_id || !uuid) {
         if (window.location.pathname !== "/login") {
@@ -116,10 +116,10 @@ export function CryptoProvider({ children }) {
         retryCountRef.current += 1;
 
         if (retryCountRef.current >= MAX_PASSKEY_RETRIES) {
-          ls.remove("passkey_id");
-          ls.remove("private_key");
-          ls.remove("iota_id");
-          ls.remove("uuid");
+          ls.remove("auth_passkey_id");
+          ls.remove("auth_private_key");
+          ls.remove("auth_iota_id");
+          ls.remove("auth_uuid");
           if (isMounted) {
             router.push("/login");
             setIsInitialized(true);

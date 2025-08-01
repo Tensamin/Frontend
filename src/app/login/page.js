@@ -97,16 +97,16 @@ export function LoginForm() {
                 },
               });
               encryption_value = passkey.id
-              ls.set('passkey_id', encryption_value);
+              ls.set('auth_passkey_id', encryption_value);
             } else {
               encryption_value = await createPasskey(uuid);
             }
             
             let encrypted_private_key = await encrypt_base64_using_aes(base64_private_key, encryption_value);
             let encrypted_iota_id = await encrypt_base64_using_aes(btoa(data.data.iota_id), encryption_value);
-            ls.set('private_key', encrypted_private_key)
-            ls.set('iota_id', encrypted_iota_id)
-            ls.set('uuid', uuid)
+            ls.set('auth_private_key', encrypted_private_key)
+            ls.set('auth_iota_id', encrypted_iota_id)
+            ls.set('auth_uuid', uuid)
             // Stay logged in: vanilla html
             // if (document.getElementById("stay-logged-in").checked) {
             //     document.cookie = `encryption_value=${encryption_value}; max-age=` + 30 * 24 * 60 * 60 + "; path=/; secure; samesite=strict";

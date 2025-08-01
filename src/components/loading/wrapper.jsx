@@ -14,6 +14,7 @@ import { UsersProvider } from "@/components/context/users"
 import { PageProvider } from "@/components/context/page";
 import { CryptoProvider } from "@/components/context/crypto";
 import { EncryptionProvider } from "@/components/context/encryption";
+import { ActualThemeProvider } from "@/components/context/theme"
 
 // Components
 import { Loading } from "@/components/loading/content";
@@ -28,9 +29,9 @@ export function LoadingWrapper() {
     let pathname = usePathname();
 
     useEffect(() => {
-        let passkey_id = ls.get("passkey_id");
-        let private_key = ls.get("private_key");
-        let uuid = ls.get("uuid");
+        let passkey_id = ls.get("auth_passkey_id");
+        let private_key = ls.get("auth_private_key");
+        let uuid = ls.get("auth_uuid");
 
         const authenticated = (passkey_id && private_key && uuid);
         setIsAuthenticated(authenticated);
@@ -86,7 +87,9 @@ export function LoadingWrapper() {
                     <WebSocketProvider>
                         <MessageProvider>
                             <PageProvider>
-                                <Page />
+                                <ActualThemeProvider>
+                                    <Page />
+                                </ActualThemeProvider>
                             </PageProvider>
                         </MessageProvider>
                     </WebSocketProvider>

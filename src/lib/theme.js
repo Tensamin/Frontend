@@ -6,6 +6,7 @@ import {
   hexFromArgb,
   Hct
 } from "@material/material-color-utilities";
+import { Scheme } from "@material/material-color-utilities";
 
 // hard tint
 export let THEME_CONTROLS = {
@@ -315,7 +316,10 @@ function saturateArgb(argbValue, saturationAmount) {
 
 export function generateMaterialYouPalette(baseHex, colorScheme = "light") {
   let theme = themeFromSourceColor(argbFromHex(baseHex));
-  let selectedScheme = theme.schemes[colorScheme];
+  console.log(theme)
+  console.log(colorScheme)
+  let selectedScheme = new Scheme(theme.schemes[colorScheme]);
+  console.log(selectedScheme)
 
   let isLight = colorScheme === "light";
   let baseSurface = selectedScheme.surface;

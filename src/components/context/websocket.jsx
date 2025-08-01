@@ -206,7 +206,7 @@ export let WebSocketProvider = ({ children }) => {
         },
         {
           iota_id: IotaUUID,
-          user_id: ls.get('uuid'),
+          user_id: ls.get('auth_uuid'),
           private_key_hash: privateKeyHash
         })
         .then(data => {

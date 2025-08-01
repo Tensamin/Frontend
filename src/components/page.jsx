@@ -8,7 +8,7 @@ import ls from "@/lib/localStorageManager"
 
 // Context Imports
 import { usePageContext } from "@/components/context/page";
-import { ActualThemeProvider } from "@/components/context/theme";
+import { useActualThemeProvider } from "@/components/context/theme";
 import { useUsersContext } from "@/components/context/users";
 
 // Components
@@ -27,6 +27,7 @@ export function Page() {
     let [isVisible, setIsVisible] = useState(false);
     let { page } = usePageContext();
     let { shouldCreateCall } = useUsersContext();
+    let { sidebarRightSide } = useActualThemeProvider();
 
     useEffect(() => {
         const timer = setTimeout(() => {
@@ -37,7 +38,7 @@ export function Page() {
     }, []);
 
     return (
-        <ActualThemeProvider>
+        <>
             <SidebarProvider className="bg-sidebar">
                 <div className="flex flex-col w-screen h-screen overflow-hidden">
                     <div className="flex h-10">
@@ -45,7 +46,7 @@ export function Page() {
                     </div>
 
                     <div className="flex flex-1 overflow-hidden">
-                        {ls.get("sidebar_side") !== "right" ? (
+                        {!sidebarRightSide ? (
                             <AppSidebar />
                         ) : null}
 
@@ -69,7 +70,7 @@ export function Page() {
                             </div>
                         </SidebarInset>
 
-                        {ls.get("sidebar_side") === "right" ? (
+                        {sidebarRightSide ? (
                             <AppSidebar />
                         ) : null}
                     </div>
@@ -79,6 +80,6 @@ export function Page() {
             {shouldCreateCall ? (
                 <VoiceCall />
             ) : null}
-        </ActualThemeProvider>
+        </>
     )
 };

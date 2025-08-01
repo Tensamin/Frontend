@@ -33,15 +33,10 @@ export function UsersProvider({ children }) {
     let [fetchedUsers, setFetchedUsers] = useState({});
     let [userStates, setUserStates] = useState({})
     let [chatsArray, setChatsArray] = useState([])
-    let [voiceStatus, setVoiceStatus] = useState({
-        ping: 1,
-        status: "CONNECTED"
-    })
     let [shouldCreateCall, setShouldCreateCall] = useState(false);
     let [gettingCalled, setGettingCalled] = useState(false)
     let [gettingCalledData, setGettingCalledData] = useState({})
-    let [ownUuid, setOwnUuid] = useState(ls.get("uuid"))
-
+    let [forceLoad, setForceLoad] = useState(false)
     let [currentCall, setCurrentCall] = useState({
         connected: false,
         mute: ls.get('call_mute') === "true",
@@ -50,8 +45,6 @@ export function UsersProvider({ children }) {
         secret: v7(),
         users: [],
     })
-
-    let [forceLoad, setForceLoad] = useState(false)
 
     useEffect(() => {
         ls.set('call_mute', currentCall.mute ? "true" : "false")
@@ -171,8 +164,6 @@ export function UsersProvider({ children }) {
                 chatsArray,
                 setChatsArray,
                 makeChatTop,
-                voiceStatus,
-                setVoiceStatus,
                 currentCall,
                 setCurrentCall,
                 shouldCreateCall,
@@ -184,7 +175,7 @@ export function UsersProvider({ children }) {
                 setGettingCalled,
                 gettingCalledData,
                 setGettingCalledData,
-                ownUuid,
+                ownUuid: ls.get("auth_uuid"),
             }}
         >
             {children}

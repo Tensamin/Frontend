@@ -19,6 +19,7 @@ import ls from "@/lib/localStorageManager";
 import { useCryptoContext } from "@/components/context/crypto";
 import { useUsersContext } from "@/components/context/users";
 import { useMessageContext } from "@/components/context/messages";
+import { useActualThemeProvider } from "@/components/context/theme";
 
 // Components
 import { Button } from "@/components/ui/button";
@@ -58,7 +59,7 @@ import { EditableImage } from "@/components/page/settings/editable/image"
 
 // Main
 export function Profile() {
-  let { get } = useUsersContext();
+  let { get, ownUuid } = useUsersContext();
   let { privateKeyHash } = useCryptoContext();
 
   let [profile, setProfile] = useState({
@@ -169,26 +170,25 @@ export function Profile() {
 }
 
 export function Appearance() {
-  let [color, setColor] = useState(ls.get("theme") || "");
-  let [tmpColor, setTmpColor] = useState(ls.get("theme") || "");
-  let [tint, setTint] = useState(ls.get("tint") || "soft");
-  let [colorScheme, setColorScheme] = useState(ls.get("colorScheme") || "dark");
+  let { setTheme } = useTheme();
+  let { sidebarRightSide, setSidebarRightSide } = useActualThemeProvider();
+
+  let [tmpColor, setTmpColor] = useState(ls.get("theme_hex") || "");
+  let [tint, setTint] = useState(ls.get("theme_tint") || "soft");
+  let [colorScheme, setColorScheme] = useState(ls.get("theme_scheme") || "dark");
   let [tintOpen, setTintOpen] = useState(false);
   let [colorSchemeOpen, setColorSchemeOpen] = useState(false);
   let [inputValue, setInputValue] = useState(
     JSON.stringify(
-      JSON.parse(ls.get("theme-control")) || THEME_CONTROLS,
+      JSON.parse(ls.get("theme_control")) || THEME_CONTROLS,
       null,
       2
     )
   );
-  let [sidebarPositionSwitch, setSidebarPositionSwitch] = useState(ls.get("sidebar_side") === "right")
-
-  let { setTheme } = useTheme();
 
   useEffect(() => {
     if (tmpColor && isHexColor(tmpColor)) {
-      ls.set("theme", tmpColor);
+      ls.set("theme_hex", tmpColor);
       setTheme(tmpColor);
 
       let palette;
@@ -196,7 +196,7 @@ export function Appearance() {
         palette = generateMaterialYouPalette(tmpColor, colorScheme);
       } else {
         let themeControls =
-          JSON.parse(ls.get("theme-control")) || THEME_CONTROLS;
+          JSON.parse(ls.get("theme_control")) || THEME_CONTROLS;
 
         palette = generateTintPalette(tmpColor, themeControls, colorScheme);
       }
@@ -252,24 +252,16 @@ export function Appearance() {
   }, [tmpColor, tint, colorScheme, inputValue]);
 
   useEffect(() => {
-    ls.set("tint", tint);
+    ls.set("theme_tint", tint);
   }, [tint]);
 
   useEffect(() => {
-    if (sidebarPositionSwitch) {
-      ls.set("sidebar_side", "right")
-    } else {
-      ls.set("sidebar_side", "left")
-    }
-  }, [sidebarPositionSwitch])
-
-  useEffect(() => {
-    ls.set("colorScheme", colorScheme);
+    ls.set("theme_scheme", colorScheme);
   }, [colorScheme]);
 
   function submitThemeControlsChange(event) {
     event.preventDefault();
-    ls.set("theme-control", inputValue);
+    ls.set("theme_control", inputValue);
     window.location.reload();
   }
 
@@ -284,7 +276,7 @@ export function Appearance() {
   function submitTmpColorChange(event) {
     event.preventDefault();
     if (isHexColor(tmpColor)) {
-      setColor(tmpColor);
+      setTmpColor(tmpColor);
     }
   }
 
@@ -454,13 +446,13 @@ export function Appearance() {
           <AlertDialogTrigger asChild>
             <Button className="text-destructive" variant="outline">
               <Icon.Trash />
-              <p className="w-full text-left">Reset entire theme</p>
+              <p className="w-full text-left">Reset color theme</p>
             </Button>
           </AlertDialogTrigger>
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>
-                Are you sure you want to reset your entire theme?
+                Are you sure you want to reset your color theme?
               </AlertDialogTitle>
               <AlertDialogDescription>
                 This action cannot be undone. This will delete your theme hex and
@@ -471,9 +463,11 @@ export function Appearance() {
               <AlertDialogCancel>Cancel</AlertDialogCancel>
               <AlertDialogAction
                 onClick={() => {
-                  setColor("");
-                  ls.remove("theme");
-                  ls.remove("theme-control");
+                  setTmpColor("");
+                  ls.remove("theme_tint");
+                  ls.remove("theme_scheme");
+                  ls.remove("theme_hex");
+                  ls.remove("theme_control");
                   window.location.reload();
                 }}
               >
@@ -489,12 +483,12 @@ export function Appearance() {
       <div className="flex gap-2">
         <Switch
           id="sidebar-right-switch"
-          checked={sidebarPositionSwitch}
-          onCheckedChange={setSidebarPositionSwitch}
+          checked={sidebarRightSide}
+          onCheckedChange={setSidebarRightSide}
         />
         <Label
           htmlFor="sidebar-right-switch"
-        >Align Sidebar Right (Reload to see changes)</Label>
+        >Sidebar Right</Label>
       </div>
     </div>
   );

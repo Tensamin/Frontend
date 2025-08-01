@@ -1,28 +1,29 @@
 // Package Imports
-import * as Icon from "lucide-react"
-import { Ring } from "ldrs/react"
-import "ldrs/react/Ring.css"
-import { motion, AnimatePresence } from "framer-motion"
-import { useEffect, useState } from "react"
+import * as Icon from "lucide-react";
+import { Ring } from "ldrs/react";
+import "ldrs/react/Ring.css";
+import { motion, AnimatePresence } from "framer-motion";
+import { useEffect, useState } from "react";
 
 // Lib Imports
-import { cn } from "@/lib/utils"
-import ls from "@/lib/localStorageManager"
+import { cn } from "@/lib/utils";
+import ls from "@/lib/localStorageManager";
 
 // Context Imports
-import { usePageContext } from "@/components/context/page"
-import { useMessageContext } from "@/components/context/messages"
-import { useUsersContext } from "@/components/context/users"
+import { usePageContext } from "@/components/context/page";
+import { useMessageContext } from "@/components/context/messages";
+import { useUsersContext } from "@/components/context/users";
+import { useActualThemeProvider } from "@/components/context/theme";
 
 // Components
-import { SidebarTrigger } from "@/components/ui/sidebar"
-import { Button } from "@/components/ui/button"
-import { useSidebar } from "@/components/ui/sidebar"
+import { SidebarTrigger } from "@/components/ui/sidebar";
+import { Button } from "@/components/ui/button";
+import { useSidebar } from "@/components/ui/sidebar";
 import {
     HoverCard,
     HoverCardContent,
     HoverCardTrigger,
-} from "@/components/ui/hover-card"
+} from "@/components/ui/hover-card";
 
 // Framer Motion stuff
 let containerVariants = {
@@ -43,6 +44,7 @@ let itemVariants = {
 
 // Main
 export function Navbar() {
+    let { sidebarRightSide } = useActualThemeProvider();
     let { get, startVoiceCall } = useUsersContext();
     let { open } = useSidebar();
     let { setPage } = usePageContext();
@@ -63,7 +65,7 @@ export function Navbar() {
 
     return (
         <div className="flex-1 flex items-center p-1.5 pb-0">
-            {ls.get("sidebar_side") !== "right" ? (
+            {!sidebarRightSide ? (
                 <div
                     className={cn(
                         "bg-sidebar hidden md:block transition-all duration-300",
@@ -197,7 +199,7 @@ export function Navbar() {
                     )}
                 </AnimatePresence>
             </motion.div>
-            {ls.get("sidebar_side") === "right" ? (
+            {sidebarRightSide ? (
                 <div
                     className={cn(
                         "bg-sidebar hidden md:block transition-all duration-300",

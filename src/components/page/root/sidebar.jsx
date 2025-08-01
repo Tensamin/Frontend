@@ -8,6 +8,7 @@ import ls from "@/lib/localStorageManager";
 
 // Context Imports
 import { useUsersContext } from "@/components/context/users";
+import { useActualThemeProvider } from "@/components/context/theme";
 
 // Components
 import { Button } from "@/components/ui/button";
@@ -25,7 +26,8 @@ import { Chats } from "@/components/page/root/chats"
 
 // Main
 export function AppSidebar(props) {
-  let { get, forceLoad, ownUuid } = useUsersContext()
+  let { get, forceLoad, ownUuid } = useUsersContext();
+  let { sidebarRightSide } = useActualThemeProvider();
   let [username, setUsername] = useState("...")
   let [display, setDisplay] = useState("...")
   let [avatar, setAvatar] = useState("...")
@@ -40,7 +42,7 @@ export function AppSidebar(props) {
   }, [])
 
   return (
-    <Sidebar side={ls.get("sidebar_side") || "left"} variant="inset" {...props}>
+    <Sidebar side={sidebarRightSide ? "right" : "left"} variant="inset" {...props}>
       <SidebarHeader>
         <SidebarMenu>
           <SidebarMenuItem className="border-1 bg-card rounded-xl">
