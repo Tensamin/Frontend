@@ -18,42 +18,146 @@ export function VoiceCall() {
     let { privateKeyHash } = useCryptoContext();
     let { currentCall, setCurrentCall, currentCallStream, ownUuid, get } = useUsersContext();
 
-    // --- Screen Share Integration ---
-    // This will be set by the ScreenShare component in main.jsx
-    const screenStreamRef = useRef(null);
+    let screenStreamRef = useRef(null);
+    let localScreenStreamRef = useRef(null); // For our own screen share
 
-    // Expose a global setter for screen stream
-    useEffect(() => {
-        window.setScreenShareStream = (stream) => {
-            screenStreamRef.current = stream;
-            // Add screen tracks to all peer connections
-            peerConnections.current.forEach((pc) => {
-                stream.getTracks().forEach((track) => {
-                    pc.addTrack(track, stream);
-                });
-            });
-        };
-        window.clearScreenShareStream = () => {
-            if (screenStreamRef.current) {
-                screenStreamRef.current.getTracks().forEach((track) => track.stop());
-                screenStreamRef.current = null;
-            }
-        };
-        return () => {
-            delete window.setScreenShareStream;
-            delete window.clearScreenShareStream;
-        };
-    }, []);
     let { receiver } = useMessageContext();
     let { encrypt_base64_using_aes, decrypt_base64_using_aes, encrypt_base64_using_pubkey } =
         useEncryptionContext();
 
     let peerConnections = useRef(new Map());
     let remoteAudioRefs = useRef(new Map());
+    let remoteScreenRefs = useRef(new Map()); // For remote screen shares
     let localStream = useRef(null);
 
     let [connectedPeers, setConnectedPeers] = useState([]);
     let [identified, setIdentified] = useState(false);
+    let [screenShareActive, setScreenShareActive] = useState(false);
+    let [screenShareError, setScreenShareError] = useState(null);
+
+    // Global screen share management
+    useEffect(() => {
+        // Expose functions to start/stop screen sharing globally
+        window.startScreenShare = async () => {
+            try {
+                setScreenShareError(null);
+                let stream = await navigator.mediaDevices.getDisplayMedia({
+                    video: true,
+                    audio: true
+                });
+
+                localScreenStreamRef.current = stream;
+                setScreenShareActive(true);
+
+                // Update currentCallStream in context
+                setCurrentCallStream(prev => ({
+                    ...prev,
+                    active: true,
+                    stream: stream
+                }));
+
+                // Add screen share tracks to all peer connections
+                peerConnections.current.forEach((pc, userId) => {
+                    stream.getTracks().forEach(track => {
+                        pc.addTrack(track, stream);
+                    });
+                });
+
+                // Handle when user stops sharing
+                stream.getVideoTracks()[0].addEventListener('ended', () => {
+                    window.stopScreenShare();
+                });
+
+                log("Screen sharing started", "debug", "Voice WebSocket:");
+                return stream;
+            } catch (err) {
+                setScreenShareError("Screen sharing failed: " + err.message);
+                log(err.message, "error", "Voice WebSocket:");
+                throw err;
+            }
+        };
+
+        window.stopScreenShare = () => {
+            if (localScreenStreamRef.current) {
+                localScreenStreamRef.current.getTracks().forEach(track => track.stop());
+                localScreenStreamRef.current = null;
+            }
+            
+            setScreenShareActive(false);
+            
+            // Update currentCallStream in context
+            setCurrentCallStream(prev => ({
+                ...prev,
+                active: false,
+                stream: null
+            }));
+
+            log("Screen sharing stopped", "debug", "Voice WebSocket:");
+        };
+
+        // Expose function to get all screen streams (local and remote)
+        window.getAllScreenStreams = () => {
+            let streams = [];
+            
+            // Add local screen stream if active
+            if (localScreenStreamRef.current) {
+                streams.push({
+                    type: 'local',
+                    stream: localScreenStreamRef.current
+                });
+            }
+            
+            // Add all remote screen streams
+            remoteScreenRefs.current.forEach((stream, peerId) => {
+                if (stream.getVideoTracks().length > 0) {
+                    streams.push({
+                        type: 'remote',
+                        peerId: peerId,
+                        stream: stream
+                    });
+                }
+            });
+            
+            return streams;
+        };
+
+        // Expose function to get a specific screen stream
+        window.getScreenStream = (peerId) => {
+            if (!peerId) {
+                // Return local screen stream
+                return localScreenStreamRef.current;
+            }
+            
+            // Return remote screen stream for specific peer
+            return remoteScreenRefs.current.get(peerId);
+        };
+
+        // Legacy function for backward compatibility
+        window.setScreenShareStream = (stream) => {
+            screenStreamRef.current = stream;
+            peerConnections.current.forEach((pc) => {
+                stream.getTracks().forEach((track) => {
+                    pc.addTrack(track, stream);
+                });
+            });
+        };
+        
+        window.clearScreenShareStream = () => {
+            if (screenStreamRef.current) {
+                screenStreamRef.current.getTracks().forEach((track) => track.stop());
+                screenStreamRef.current = null;
+            }
+        };
+
+        return () => {
+            delete window.startScreenShare;
+            delete window.stopScreenShare;
+            delete window.getAllScreenStreams;
+            delete window.getScreenStream;
+            delete window.setScreenShareStream;
+            delete window.clearScreenShareStream;
+        };
+    }, []);
 
     // Init WebSocket
     let { sendMessage, lastMessage, readyState } = useWebSocket(
@@ -122,18 +226,19 @@ export function VoiceCall() {
                     pc.addTrack(track, localStream.current);
                 });
             }
+
             // Add screen share tracks if available
-            if (screenStreamRef.current) {
+            if (localScreenStreamRef.current) {
                 log(
                     `Adding screen share tracks to peer connection for ${remoteUserId}.`,
                     "debug",
                     "Voice WebSocket:",
                 );
-                screenStreamRef.current.getTracks().forEach((track) => {
-                    pc.addTrack(track, screenStreamRef.current);
+                localScreenStreamRef.current.getTracks().forEach((track) => {
+                    pc.addTrack(track, localScreenStreamRef.current);
                 });
             }
-            if (!localStream.current && !screenStreamRef.current) {
+            if (!localStream.current && !localScreenStreamRef.current) {
                 log(
                     `NO LOCAL OR SCREEN STREAM AVAILABLE TO ADD FOR ${remoteUserId}. This should not happen if identification logic is correct.`,
                     "warning",
@@ -173,24 +278,47 @@ export function VoiceCall() {
             };
 
             pc.ontrack = (event) => {
-                let remoteStream = remoteAudioRefs.current.get(remoteUserId);
-                if (!remoteStream) {
+                // Check if this is a video track (potential screen share)
+                if (event.track.kind === 'video') {
+                    let remoteStream = remoteScreenRefs.current.get(remoteUserId);
+                    if (!remoteStream) {
+                        log(
+                            `Creating new MediaStream for remote screen from user ${remoteUserId}.`,
+                            "debug",
+                            "Voice WebSocket:",
+                        );
+                        remoteStream = new MediaStream();
+                        remoteScreenRefs.current.set(remoteUserId, remoteStream);
+                    }
+                    
                     log(
-                        `Creating new MediaStream for remote user ${remoteUserId}.`,
+                        `Adding remote video track (screen share) from ${remoteUserId}.`,
                         "debug",
                         "Voice WebSocket:",
                     );
-                    remoteStream = new MediaStream();
-                    remoteAudioRefs.current.set(remoteUserId, remoteStream);
+                    remoteStream.addTrack(event.track);
+                } 
+                // Handle audio tracks
+                else {
+                    let remoteStream = remoteAudioRefs.current.get(remoteUserId);
+                    if (!remoteStream) {
+                        log(
+                            `Creating new MediaStream for remote user ${remoteUserId}.`,
+                            "debug",
+                            "Voice WebSocket:",
+                        );
+                        remoteStream = new MediaStream();
+                        remoteAudioRefs.current.set(remoteUserId, remoteStream);
+                    }
+                    
+                    log(
+                        `Adding remote audio track from ${remoteUserId}.`,
+                        "debug",
+                        "Voice WebSocket:",
+                    );
+                    remoteStream.addTrack(event.track);
                 }
-                event.streams[0].getTracks().forEach((track) => {
-                    log(
-                        `Adding remote track (${track.kind}) from ${remoteUserId}.`,
-                        "debug",
-                        "Voice WebSocket:",
-                    );
-                    remoteStream.addTrack(track);
-                });
+                
                 setConnectedPeers((prev) =>
                     Array.from(new Set([...prev, remoteUserId])),
                 );
@@ -254,6 +382,7 @@ export function VoiceCall() {
                     );
                     peerConnections.current.delete(remoteUserId);
                     remoteAudioRefs.current.delete(remoteUserId);
+                    remoteScreenRefs.current.delete(remoteUserId);
                     setConnectedPeers((prev) =>
                         prev.filter((id) => id !== remoteUserId),
                     );
@@ -294,6 +423,14 @@ export function VoiceCall() {
             identified: identified,
         }));
     }, [identified]);
+
+    // Update screen share state
+    useEffect(() => {
+        setCurrentCall((prevData) => ({
+            ...prevData,
+            screenShareActive: screenShareActive,
+        }));
+    }, [screenShareActive]);
 
     // Get Mic as soon as voice call loads
     useEffect(() => {
@@ -550,29 +687,19 @@ export function VoiceCall() {
             });
             peerConnections.current.clear();
             remoteAudioRefs.current.clear();
+            remoteScreenRefs.current.clear();
 
             if (localStream.current) {
                 localStream.current.getTracks().forEach((track) => track.stop());
                 localStream.current = null;
                 log("Stopped local media tracks.", "debug", "Voice WebSocket:");
             }
-        };
-    }, []);
 
-    // Expose remote screen share streams for UI
-    useEffect(() => {
-        window.getRemoteScreenStreams = () => {
-            // Return all remote MediaStreams that have video tracks
-            const result = [];
-            remoteAudioRefs.current.forEach((stream, peerId) => {
-                if (stream.getVideoTracks().length > 0) {
-                    result.push({ peerId, stream });
-                }
-            });
-            return result;
-        };
-        return () => {
-            delete window.getRemoteScreenStreams;
+            if (localScreenStreamRef.current) {
+                localScreenStreamRef.current.getTracks().forEach((track) => track.stop());
+                localScreenStreamRef.current = null;
+                log("Stopped local screen share tracks.", "debug", "Voice WebSocket:");
+            }
         };
     }, []);
 

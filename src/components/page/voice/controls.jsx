@@ -72,8 +72,7 @@ export function RemoteStreamVideo({ stream, className }) {
                 }
                 context.drawImage(
                     videoElement,
-                    0,
-                    0,
+                    0, 0,
                     canvasElement.width,
                     canvasElement.height,
                 );
@@ -110,50 +109,39 @@ export function VoiceControls() {
 
     let [expandUsers, setExpandUsers] = useState(true);
     let [streamError, setStreamError] = useState(null);
+    let [screenStreams, setScreenStreams] = useState([]);
+
+    // Update screen streams when they change
+    useEffect(() => {
+        const updateScreenStreams = () => {
+            if (typeof window !== "undefined" && window.getAllScreenStreams) {
+                setScreenStreams(window.getAllScreenStreams());
+            }
+        };
+
+        // Initial update
+        updateScreenStreams();
+
+        // Set up interval to check for updates
+        const interval = setInterval(updateScreenStreams, 1000);
+
+        return () => clearInterval(interval);
+    }, []);
 
     let handleStartStream = async () => {
         setStreamError(null);
         try {
-            let stream = await navigator.mediaDevices.getDisplayMedia({
-                video: true,
-            });
-
-            let videoTrack = stream.getVideoTracks()[0];
-            if (videoTrack) {
-                videoTrack.addEventListener("ended", handleStopStream);
-            }
-
-            setCurrentCallStream((prev) => ({
-                ...prev,
-                active: true,
-                stream: stream,
-            }));
-
-            if (typeof window !== "undefined" && window.setScreenShareStream) {
-                window.setScreenShareStream(stream);
+            if (typeof window !== "undefined" && window.startScreenShare) {
+                await window.startScreenShare();
             }
         } catch (err) {
             setStreamError("Screen sharing failed: " + err.message);
-            setCurrentCallStream((prev) => ({
-                ...prev,
-                active: false,
-                stream: null,
-            }));
         }
     };
 
     let handleStopStream = () => {
-        if (currentCallStream.stream) {
-            currentCallStream.stream.getTracks().forEach((track) => track.stop());
-        }
-        setCurrentCallStream((prev) => ({
-            ...prev,
-            active: false,
-            stream: null,
-        }));
-
-        if (typeof window !== "undefined" && window.clearScreenShareStream) {
-            window.clearScreenShareStream();
+        if (typeof window !== "undefined" && window.stopScreenShare) {
+            window.stopScreenShare();
         }
     };
 
@@ -217,9 +205,20 @@ export function VoiceControls() {
 
     return (
         <div className="flex w-full flex-col gap-3">
-            {currentCallStream.active && currentCallStream.stream && (
+            {/* Display all screen streams (local and remote) */}
+            {screenStreams.length > 0 && (
                 <div className="flex flex-col items-center gap-2">
-                    <RemoteStreamVideo stream={currentCallStream.stream} className="w-full max-w-md rounded-xl border-1" />
+                    {screenStreams.map((screenStream, index) => (
+                        <div key={index} className="w-full">
+                            <div className="text-sm text-muted-foreground mb-1">
+                                {screenStream.type === 'local' ? 'Your Screen' : `${screenStream.peerId}'s Screen`}
+                            </div>
+                            <RemoteStreamVideo 
+                                stream={screenStream.stream} 
+                                className="w-full max-w-md rounded-xl border-1" 
+                            />
+                        </div>
+                    ))}
                 </div>
             )}
 
