@@ -1,11 +1,10 @@
 "use client";
 
 // Package Imports
-import { ThemeProvider as NextThemesProvider } from "next-themes";
-import { 
-  useState, 
-  useEffect, 
-  createContext, 
+import {
+  useState,
+  useEffect,
+  createContext,
   useContext,
 } from "react";
 
@@ -14,19 +13,19 @@ import { generateTintPalette, generateMaterialYouPalette } from "@/lib/theme";
 import ls from "@/lib/localStorageManager";
 
 // Main
-let ActualTheme = createContext(null);
+let ThemeContext = createContext(null);
 
 // Use Context Function
-export function useActualThemeProvider() {
-  let context = useContext(ActualTheme);
+export function useThemeProvider() {
+  let context = useContext(ThemeContext);
   if (context === undefined) {
-    throw new Error("useActualTheme must be used within a ActualThemeProvider");
+    throw new Error("useTheme must be used within a ThemeProvider");
   }
   return context;
 }
 
 // Provider
-export function ActualThemeProvider({ children }) {
+export function ThemeProvider({ children }) {
   let [customHex, setCustomHex] = useState('');
   let [mounted, setMounted] = useState(false);
   let [sidebarRightSide, setSidebarRightSide] = useState(ls.get("theme_sidebar") === "right")
@@ -65,13 +64,13 @@ export function ActualThemeProvider({ children }) {
         case "hard_a":
           palette = generateTintPalette(customHex, JSON.parse(ls.get('theme_control')), ls.get('theme_scheme'));
           break;
-      
+
         default:
           palette = generateMaterialYouPalette(customHex, ls.get('theme_scheme'));
           ls.set('theme_tint', 'soft')
           break;
       }
-      
+
       for (let [cssVar, value] of Object.entries(palette)) {
         document.documentElement.style.setProperty(cssVar, value);
       }
@@ -81,13 +80,11 @@ export function ActualThemeProvider({ children }) {
   }, [customHex, mounted]);
 
   return (
-    <NextThemesProvider attribute="class" defaultTheme="" enableSystem>
-      <ActualTheme.Provider value={{
-        sidebarRightSide,
-        setSidebarRightSide,
-      }}>
-        {children}
-      </ActualTheme.Provider>
-    </NextThemesProvider>
+    <ThemeContext.Provider value={{
+      sidebarRightSide,
+      setSidebarRightSide,
+    }}>
+      {children}
+    </ThemeContext.Provider>
   );
 };

@@ -8,7 +8,7 @@ import ls from "@/lib/localStorageManager";
 
 // Context Imports
 import { useUsersContext } from "@/components/context/users";
-import { useActualThemeProvider } from "@/components/context/theme";
+import { useThemeProvider } from "@/components/context/theme";
 
 // Components
 import { Button } from "@/components/ui/button";
@@ -27,7 +27,7 @@ import { Chats } from "@/components/page/root/chats"
 // Main
 export function AppSidebar(props) {
   let { get, forceLoad, ownUuid } = useUsersContext();
-  let { sidebarRightSide } = useActualThemeProvider();
+  let { sidebarRightSide } = useThemeProvider();
   let [username, setUsername] = useState("...")
   let [display, setDisplay] = useState("...")
   let [avatar, setAvatar] = useState("...")

@@ -8,7 +8,7 @@ import ls from "@/lib/localStorageManager"
 
 // Context Imports
 import { usePageContext } from "@/components/context/page";
-import { useActualThemeProvider } from "@/components/context/theme";
+import { useThemeProvider } from "@/components/context/theme";
 import { useUsersContext } from "@/components/context/users";
 
 // Components
@@ -27,7 +27,7 @@ export function Page() {
     let [isVisible, setIsVisible] = useState(false);
     let { page } = usePageContext();
     let { shouldCreateCall } = useUsersContext();
-    let { sidebarRightSide } = useActualThemeProvider();
+    let { sidebarRightSide } = useThemeProvider();
 
     useEffect(() => {
         const timer = setTimeout(() => {

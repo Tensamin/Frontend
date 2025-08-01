@@ -18,7 +18,7 @@ import ls from "@/lib/localStorageManager";
 import { useCryptoContext } from "@/components/context/crypto";
 import { useUsersContext } from "@/components/context/users";
 import { useMessageContext } from "@/components/context/messages";
-import { useActualThemeProvider } from "@/components/context/theme";
+import { useThemeProvider } from "@/components/context/theme";
 
 // Components
 import { Button } from "@/components/ui/button";
@@ -169,7 +169,7 @@ export function Profile() {
 }
 
 export function Appearance() {
-  let { sidebarRightSide, setSidebarRightSide } = useActualThemeProvider();
+  let { sidebarRightSide, setSidebarRightSide } = useThemeProvider();
 
   let [tmpColor, setTmpColor] = useState(ls.get("theme_hex") || "");
   let [tint, setTint] = useState(ls.get("theme_tint") || "soft");

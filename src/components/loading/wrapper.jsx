@@ -14,7 +14,7 @@ import { UsersProvider } from "@/components/context/users"
 import { PageProvider } from "@/components/context/page";
 import { CryptoProvider } from "@/components/context/crypto";
 import { EncryptionProvider } from "@/components/context/encryption";
-import { ActualThemeProvider } from "@/components/context/theme"
+import { ThemeProvider } from "@/components/context/theme"
 
 // Components
 import { Loading } from "@/components/loading/content";
@@ -87,9 +87,9 @@ export function LoadingWrapper() {
                     <WebSocketProvider>
                         <MessageProvider>
                             <PageProvider>
-                                <ActualThemeProvider>
+                                <ThemeProvider>
                                     <Page />
-                                </ActualThemeProvider>
+                                </ThemeProvider>
                             </PageProvider>
                         </MessageProvider>
                     </WebSocketProvider>

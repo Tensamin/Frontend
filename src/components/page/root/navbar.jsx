@@ -13,7 +13,7 @@ import ls from "@/lib/localStorageManager";
 import { usePageContext } from "@/components/context/page";
 import { useMessageContext } from "@/components/context/messages";
 import { useUsersContext } from "@/components/context/users";
-import { useActualThemeProvider } from "@/components/context/theme";
+import { useThemeProvider } from "@/components/context/theme";
 
 // Components
 import { SidebarTrigger } from "@/components/ui/sidebar";
@@ -44,7 +44,7 @@ let itemVariants = {
 
 // Main
 export function Navbar() {
-    let { sidebarRightSide } = useActualThemeProvider();
+    let { sidebarRightSide } = useThemeProvider();
     let { get, startVoiceCall } = useUsersContext();
     let { open } = useSidebar();
     let { setPage } = usePageContext();
