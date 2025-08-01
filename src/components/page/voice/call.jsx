@@ -17,6 +17,33 @@ import { useMessageContext } from "@/components/context/messages";
 export function VoiceCall() {
     let { privateKeyHash } = useCryptoContext();
     let { currentCall, setCurrentCall, currentCallStream, ownUuid, get } = useUsersContext();
+
+    // --- Screen Share Integration ---
+    // This will be set by the ScreenShare component in main.jsx
+    const screenStreamRef = useRef(null);
+
+    // Expose a global setter for screen stream
+    useEffect(() => {
+        window.setScreenShareStream = (stream) => {
+            screenStreamRef.current = stream;
+            // Add screen tracks to all peer connections
+            peerConnections.current.forEach((pc) => {
+                stream.getTracks().forEach((track) => {
+                    pc.addTrack(track, stream);
+                });
+            });
+        };
+        window.clearScreenShareStream = () => {
+            if (screenStreamRef.current) {
+                screenStreamRef.current.getTracks().forEach((track) => track.stop());
+                screenStreamRef.current = null;
+            }
+        };
+        return () => {
+            delete window.setScreenShareStream;
+            delete window.clearScreenShareStream;
+        };
+    }, []);
     let { receiver } = useMessageContext();
     let { encrypt_base64_using_aes, decrypt_base64_using_aes, encrypt_base64_using_pubkey } =
         useEncryptionContext();
@@ -94,9 +121,21 @@ export function VoiceCall() {
                 localStream.current.getTracks().forEach((track) => {
                     pc.addTrack(track, localStream.current);
                 });
-            } else {
+            }
+            // Add screen share tracks if available
+            if (screenStreamRef.current) {
                 log(
-                    `NO LOCAL STREAM AVAILABLE TO ADD FOR ${remoteUserId}. This should not happen if identification logic is correct.`,
+                    `Adding screen share tracks to peer connection for ${remoteUserId}.`,
+                    "debug",
+                    "Voice WebSocket:",
+                );
+                screenStreamRef.current.getTracks().forEach((track) => {
+                    pc.addTrack(track, screenStreamRef.current);
+                });
+            }
+            if (!localStream.current && !screenStreamRef.current) {
+                log(
+                    `NO LOCAL OR SCREEN STREAM AVAILABLE TO ADD FOR ${remoteUserId}. This should not happen if identification logic is correct.`,
                     "warning",
                     "Voice WebSocket:",
                 );
@@ -517,6 +556,23 @@ export function VoiceCall() {
                 localStream.current = null;
                 log("Stopped local media tracks.", "debug", "Voice WebSocket:");
             }
+        };
+    }, []);
+
+    // Expose remote screen share streams for UI
+    useEffect(() => {
+        window.getRemoteScreenStreams = () => {
+            // Return all remote MediaStreams that have video tracks
+            const result = [];
+            remoteAudioRefs.current.forEach((stream, peerId) => {
+                if (stream.getVideoTracks().length > 0) {
+                    result.push({ peerId, stream });
+                }
+            });
+            return result;
+        };
+        return () => {
+            delete window.getRemoteScreenStreams;
         };
     }, []);
 
