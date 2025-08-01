@@ -9,6 +9,7 @@ import ls from "@/lib/localStorageManager";
 // Context Imports
 import { useWebSocketContext } from "@/components/context/websocket";
 import { useMessageContext } from "@/components/context/messages";
+import { useUsersContext } from "@/components/context/users";
 
 // Components
 import { Button } from "@/components/ui/button";
@@ -16,6 +17,7 @@ import { Button } from "@/components/ui/button";
 // Main
 export function MessageSend() {
   let [message, setMessage] = useState("");
+  let { ownUuid } = useUsersContext();
   let { connected } = useWebSocketContext();
   let { addMessage, navbarLoading, navbarLoadingMessage } = useMessageContext();
   let textareaRef = useRef(null);
@@ -91,7 +93,7 @@ export function MessageSend() {
 
       addMessage({
         id: Math.floor(Date.now()).toString(),
-        sender: ls.get("uuid"),
+        sender: ownUuid,
         content: message,
         sendToServer: true,
       });

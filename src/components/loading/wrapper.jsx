@@ -20,7 +20,7 @@ import { Loading } from "@/components/loading/content";
 import { Page } from "@/components/page"
 
 // Main
-export function LoadingWrapper({ children }) {
+export function LoadingWrapper() {
     let [isAuthenticated, setIsAuthenticated] = useState(false);
     let [isLoading, setIsLoading] = useState(true);
 

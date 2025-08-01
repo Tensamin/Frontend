@@ -71,7 +71,7 @@ export function Profile() {
   let [aboutChars, setAboutChars] = useState(0);
 
   useEffect(() => {
-    get(ls.get('uuid'))
+    get(ownUuid)
       .then(data => {
         setProfile({
           username: data.username,
@@ -91,7 +91,7 @@ export function Profile() {
       ...prevData,
       [field]: field === "about" ? atob(newValue) : newValue,
     }));
-    fetch(`${endpoint.user}${ls.get('uuid')}/change_${field}`, {
+    fetch(`${endpoint.user}${ownUuid}/change_${field}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: `{"private_key_hash": "${privateKeyHash}", "${field}": "${newValue}"}`
@@ -546,13 +546,13 @@ export function Voice() {
 }
 
 export function ExtraBenefits() {
-  let { get } = useUsersContext()
+  let { get, ownUuid } = useUsersContext()
 
   let [subLevel, setSubLevel] = useState(0)
   let [subEnd, setSubEnd] = useState(0)
 
   useEffect(() => {
-    get(ls.get('uuid'))
+    get(ownUuid)
       .then(data => {
         setSubLevel(data.sub_level)
         setSubEnd(data.sub_end)

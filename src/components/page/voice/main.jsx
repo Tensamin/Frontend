@@ -33,16 +33,16 @@ import { SmallUserModal, VoiceModal, MiniUserModal } from "@/components/page/roo
 
 // Main
 export function Main() {
-    let { currentCall, chatsArray, get } = useUsersContext();
+    let { currentCall, chatsArray, ownUuid } = useUsersContext();
 
     let [inviteOpen, setInviteOpen] = useState(false);
     let [usersWithSelf, setUsersWithSelf] = useState([]);
 
     useEffect(() => {
         if (currentCall.users.length > 0) {
-            setUsersWithSelf([currentCall.users, ls.get("uuid")])
+            setUsersWithSelf([currentCall.users, ownUuid])
         } else {
-            setUsersWithSelf([ls.get("uuid")])
+            setUsersWithSelf([ownUuid])
         }
     }, [currentCall.users])
 

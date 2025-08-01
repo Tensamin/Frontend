@@ -25,13 +25,13 @@ import { Chats } from "@/components/page/root/chats"
 
 // Main
 export function AppSidebar(props) {
-  let { get, forceLoad } = useUsersContext()
+  let { get, forceLoad, ownUuid } = useUsersContext()
   let [username, setUsername] = useState("...")
   let [display, setDisplay] = useState("...")
   let [avatar, setAvatar] = useState("...")
 
   useEffect(() => {
-    get(ls.get('uuid'))
+    get(ownUuid)
       .then(data => {
         setUsername(data.username)
         setDisplay(data.display)

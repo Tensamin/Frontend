@@ -19,7 +19,7 @@ import ls from "@/lib/localStorageManager";
 import { useCryptoContext } from "@/components/context/crypto";
 import { useWebSocketContext } from "@/components/context/websocket";
 import { useUsersContext } from "@/components/context/users";
-import { useEncryptionContext } from "@/components/context/encryption"
+import { useEncryptionContext } from "@/components/context/encryption";
 
 // Main
 let MessageContext = createContext();
@@ -39,9 +39,13 @@ export function useMessageContext() {
 // Provider
 export function MessageProvider({ children }) {
   let { privateKey } = useCryptoContext();
-  let { get, makeChatTop } = useUsersContext();
+  let { get, makeChatTop, ownUuid } = useUsersContext();
   let { send, connected, message } = useWebSocketContext();
-  let { decrypt_base64_using_privkey, encrypt_base64_using_aes, decrypt_base64_using_aes } = useEncryptionContext();
+  let {
+    decrypt_base64_using_privkey,
+    encrypt_base64_using_aes,
+    decrypt_base64_using_aes,
+  } = useEncryptionContext();
 
   let [receiver, setReceiver] = useState("");
   let [receiverPublicKey, setReceiverPublicKey] = useState("");
@@ -54,6 +58,7 @@ export function MessageProvider({ children }) {
   let [loadMoreMessages, setLoadMoreMessages] = useState(false);
   let [moreMessagesLoadedOnce, setMoreMessagesLoadedOnce] = useState(false);
   let [loadedAllMessages, setLoadedAllMessages] = useState(false);
+  let [noMessageWithUser, setNoMessageWithUser] = useState(false);
   let navbarLoadingTimeoutRef = useRef(null);
 
   // Notifications
@@ -68,7 +73,10 @@ export function MessageProvider({ children }) {
 
   let requestNotificationPermission = useCallback(async () => {
     if (!("Notification" in window)) {
-      return { success: false, message: "Notifications are not supported by this browser." };
+      return {
+        success: false,
+        message: "Notifications are not supported by this browser.",
+      };
     }
 
     try {
@@ -96,7 +104,9 @@ export function MessageProvider({ children }) {
         icon: icon,
       });
     } else {
-      toast.info(`${sender} sent you a message, enable notifications in the settings!`)
+      toast.info(
+        `${sender} sent you a message, enable notifications in the settings!`,
+      );
     }
   }
 
@@ -147,6 +157,7 @@ export function MessageProvider({ children }) {
     setMessagesAmount(initialMessages);
     setMoreMessagesLoadedOnce(false);
     setLoadedAllMessages(false);
+    setNoMessageWithUser(false)
   }
 
   function removeSecondsFromUnixTimestamp(oldTime) {
@@ -165,7 +176,6 @@ export function MessageProvider({ children }) {
       });
     } catch (err) {
       let stringErr = err.toString();
-      console.log("HERE: " + stringErr)
       if (
         stringErr === "OperationError" ||
         stringErr ===
@@ -263,9 +273,9 @@ export function MessageProvider({ children }) {
           message_amount: initialMessages,
         },
       ).then(async (data) => {
-        setMoreMessagesLoadedOnce(true)
+        setMoreMessagesLoadedOnce(true);
 
-        if (typeof (data.data.message_chunk) === "undefined") {
+        if (typeof data.data.message_chunk === "undefined") {
           setNavbarLoadingMessage("");
           updateNavbarLoading(false);
           setLoadMoreMessages(false);
@@ -287,9 +297,7 @@ export function MessageProvider({ children }) {
                 );
                 return {
                   id: chunk.message_time,
-                  sender: chunk.sender_is_me
-                    ? ls.get("uuid")
-                    : receiver,
+                  sender: chunk.sender_is_me ? ownUuid : receiver,
                   content: decryptedContent,
                   sendToServer: false,
                 };
@@ -345,7 +353,7 @@ export function MessageProvider({ children }) {
         send(
           "shared_secret_get",
           {
-            message: `${ls.get("uuid")} requested shared secret of ${receiver}`,
+            message: `${ownUuid} requested shared secret of ${receiver}`,
             log_level: 1,
           },
           {
@@ -377,21 +385,52 @@ export function MessageProvider({ children }) {
             message_amount: initialMessages,
           },
         ).then(async (data) => {
-          let sortedChunk = [...data.data.message_chunk].sort(
-            (a, b) => a.message_time - b.message_time,
-          );
+          if (typeof data.data.message_chunk !== "undefined") {
+            let sortedChunk = [...data.data.message_chunk].sort(
+              (a, b) => a.message_time - b.message_time,
+            );
+            const decryptedMessages = await Promise.all(
+              sortedChunk.map(async (chunk) => {
+                try {
+                  const decryptedContent = atob(
+                    await decrypt_base64_using_aes(
+                      chunk.message_content,
+                      sharedSecret,
+                    ),
+                  );
+                  return {
+                    id: chunk.message_time,
+                    sender: chunk.sender_is_me ? ownUuid : receiver,
+                    content: decryptedContent,
+                    sendToServer: false,
+                  };
+                } catch (err) {
+                  let stringErr = err.toString();
+                  if (
+                    stringErr === "OperationError" ||
+                    stringErr ===
+                    "OperationError: The operation failed for an operation-specific reason"
+                  ) {
+                    setFailedMessages((prev) => prev + 1);
+                  } else {
+                    log(stringErr, "error");
+                  }
+                  return null;
+                }
+              }),
+            );
+            let processedMessages = [];
+            decryptedMessages.forEach((msgData) => {
+              if (msgData) {
+                processedMessages = addToChunk(processedMessages, msgData);
+              }
+            });
 
-          await Promise.all(
-            sortedChunk.map(async (chunk) => {
-              await processAndAddMessage(
-                chunk.message_time,
-                chunk.sender_is_me
-                  ? ls.get("uuid")
-                  : receiver,
-                chunk.message_content,
-              );
-            }),
-          );
+            setMessages(processedMessages);
+          } else {
+            setNoMessageWithUser(true)
+          }
+
           setNavbarLoadingMessage("");
           updateNavbarLoading(false);
         });
@@ -404,7 +443,7 @@ export function MessageProvider({ children }) {
     async function doStuff() {
       if (connected && message !== null && message.type === "message_live") {
         let messageSender = message.data.sender_id;
-        let messageMessage = message.data.message
+        let messageMessage = message.data.message;
         if (messageSender === receiver) {
           await processAndAddMessage(
             message.data.send_time,
@@ -417,7 +456,9 @@ export function MessageProvider({ children }) {
             await send(
               "shared_secret_get",
               {
-                message: `${ls.get("uuid")} requested shared secret of ${receiver}`,
+                message: `${ls.get(
+                  "uuid",
+                )} requested shared secret of ${receiver}`,
                 log_level: 0,
               },
               {
@@ -429,8 +470,14 @@ export function MessageProvider({ children }) {
                 privateKey,
               );
             });
-            makeChatTop(messageSender)
-            sendNotification(data.display, atob(await decrypt_base64_using_aes(messageMessage, tmpSharedSecret)), data.avatar)
+            makeChatTop(messageSender);
+            sendNotification(
+              data.display,
+              atob(
+                await decrypt_base64_using_aes(messageMessage, tmpSharedSecret),
+              ),
+              data.avatar,
+            );
           });
         }
       }
@@ -525,6 +572,7 @@ export function MessageProvider({ children }) {
         setLoadedAllMessages,
         sendNotification,
         requestNotificationPermission,
+        noMessageWithUser,
       }}
     >
       {children}

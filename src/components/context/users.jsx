@@ -40,6 +40,7 @@ export function UsersProvider({ children }) {
     let [shouldCreateCall, setShouldCreateCall] = useState(false);
     let [gettingCalled, setGettingCalled] = useState(false)
     let [gettingCalledData, setGettingCalledData] = useState({})
+    let [ownUuid, setOwnUuid] = useState(ls.get("uuid"))
 
     let [currentCall, setCurrentCall] = useState({
         connected: false,
@@ -183,6 +184,7 @@ export function UsersProvider({ children }) {
                 setGettingCalled,
                 gettingCalledData,
                 setGettingCalledData,
+                ownUuid,
             }}
         >
             {children}

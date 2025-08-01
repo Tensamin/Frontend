@@ -1,20 +1,21 @@
 // Package Imports
-import { useState, useEffect } from "react"
-import { v7 } from "uuid"
-import * as Icon from "lucide-react"
+import { useState, useEffect } from "react";
+import { v7 } from "uuid";
+import * as Icon from "lucide-react";
 
 // Lib Imports
-import { endpoint } from "@/lib/endpoints"
-import { log, isUuid } from "@/lib/utils"
+import { endpoint } from "@/lib/endpoints";
+import { log, isUuid } from "@/lib/utils";
 import ls from "@/lib/localStorageManager";
 
 // Context Imports
-import { useWebSocketContext } from "@/components/context/websocket"
-import { useEncryptionContext } from "@/components/context/encryption"
+import { useWebSocketContext } from "@/components/context/websocket";
+import { useEncryptionContext } from "@/components/context/encryption";
+import { useUsersContext } from "@/components/context/users";
 
 // Components
-import { Card, CardContent, CardHeader } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import {
     AlertDialog,
     AlertDialogAction,
@@ -25,15 +26,16 @@ import {
     AlertDialogHeader,
     AlertDialogTitle,
     AlertDialogTrigger
-} from "@/components/ui/alert-dialog"
-import { Input } from "@/components/ui/input"
-import { Button } from "@/components/ui/button"
+} from "@/components/ui/alert-dialog";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 
 // Main
 export function Main() {
     let [open, setOpen] = useState(false)
     let [newChatUUID, setNewChatUUID] = useState("")
-    let { send } = useWebSocketContext()
+    let { ownUuid } = useUsersContext();
+    let { send } = useWebSocketContext();
     let { encrypt_base64_using_pubkey } = useEncryptionContext();
 
     function handleInputChange(e) {
@@ -50,7 +52,7 @@ export function Main() {
 
                 let success = false;
 
-                await fetch(`${endpoint.user}${ls.get('uuid')}/public-key`)
+                await fetch(`${endpoint.user}${ownUuid}/public-key`)
                     .then(response => response.json())
                     .then(data => {
                         if (data.type !== "error") {
@@ -82,7 +84,7 @@ export function Main() {
 
                 if (success) {
                     await send("shared_secret_set", {
-                        message: `${ls.get('uuid')} sent ${newChatUUID} a friend request`,
+                        message: `${ownUuid} sent ${newChatUUID} a friend request`,
                         log_level: 1
                     }, {
                         receiver_id: newChatUUID,

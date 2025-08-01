@@ -15,7 +15,7 @@ import { useEncryptionContext } from "@/components/context/encryption";
 // Main
 export function VoiceCall() {
     let { privateKeyHash } = useCryptoContext();
-    let { currentCall, setCurrentCall } = useUsersContext();
+    let { currentCall, setCurrentCall, ownUuid } = useUsersContext();
     let { encrypt_base64_using_aes, decrypt_base64_using_aes } = useEncryptionContext();
 
     let peerConnections = useRef(new Map());
@@ -267,7 +267,7 @@ export function VoiceCall() {
 
                 case "client_connected":
                     let newUser = message.data.user_id;
-                    if (newUser !== ls.get('uuid')) {
+                    if (newUser !== ownUuid) {
                         log(
                             `${newUser}: Init P2P Connection`,
                             "debug",
@@ -399,7 +399,7 @@ export function VoiceCall() {
                     type: "identification",
                     data: {
                         call_id: currentCall.id,
-                        user_id: ls.get('uuid'),
+                        user_id: ownUuid,
                         private_key_hash: privateKeyHash,
                         call_secret_sha: await sha256(currentCall.secret),
                     },

@@ -14,7 +14,7 @@ import { MessageSend } from "@/components/page/chat/send";
 // Main
 export function Main({ data }) {
   let containerRef = useRef(null);
-  let { messages, resetReceiver, navbarLoading, loadMoreMessages, setLoadMoreMessages, moreMessagesLoadedOnce, loadedAllMessages } = useMessageContext();
+  let { messages, resetReceiver, navbarLoading, setLoadMoreMessages, moreMessagesLoadedOnce, loadedAllMessages, noMessageWithUser } = useMessageContext();
 
   useEffect(() => {
     resetReceiver(data);
@@ -24,62 +24,6 @@ export function Main({ data }) {
   messages.forEach((message) => {
     messagesMap.set(message.id, message);
   });
-
-  let loadingMessages = [
-    {
-      id: 1, subMessages: [
-        "",
-        "",
-      ]
-    },
-    {
-      id: 2, subMessages: [
-        "",
-      ]
-    },
-    {
-      id: 3, subMessages: [
-        "",
-        "",
-      ]
-    },
-    {
-      id: 4, subMessages: [
-        "",
-        "",
-        "",
-        "",
-      ]
-    },
-    {
-      id: 5, subMessages: [
-        ""
-      ]
-    },
-    {
-      id: 6, subMessages: [
-        "",
-        "",
-      ]
-    },
-    {
-      id: 7, subMessages: [
-        "",
-        "",
-      ]
-    },
-    {
-      id: 8, subMessages: [
-        "",
-      ]
-    },
-    {
-      id: 9, subMessages: [
-        "",
-        "",
-      ]
-    },
-  ]
 
   useEffect(() => {
     if (!moreMessagesLoadedOnce) {
@@ -113,18 +57,11 @@ export function Main({ data }) {
         className="flex items-center font-normal flex-col overflow-y-auto flex-grow gap-0 px-2.5 py-0"
         ref={containerRef}
       >
-        {loadedAllMessages ? (
+        {loadedAllMessages && !noMessageWithUser ? (
           <p className="p-2 text-sm">Loaded all messages.</p>
         ) : null}
-        {loadMoreMessages && !loadedAllMessages ? (
-          <>
-            {loadingMessages.map((message) => (
-              <MessageLoading
-                key={message.id}
-                message={message}
-              />
-            ))}
-          </>
+        {noMessageWithUser ? (
+          <p className="p-2 text-sm">You have no messages with this user.</p>
         ) : null}
         {navbarLoading ? (
           <>
