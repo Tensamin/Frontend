@@ -16,7 +16,8 @@ import { useEncryptionContext } from "@/components/context/encryption";
 export function VoiceCall() {
     let { privateKeyHash } = useCryptoContext();
     let { currentCall, setCurrentCall, ownUuid } = useUsersContext();
-    let { encrypt_base64_using_aes, decrypt_base64_using_aes } = useEncryptionContext();
+    let { encrypt_base64_using_aes, decrypt_base64_using_aes } =
+        useEncryptionContext();
 
     let peerConnections = useRef(new Map());
     let remoteAudioRefs = useRef(new Map());
@@ -70,7 +71,9 @@ export function VoiceCall() {
             }
 
             let pc = new RTCPeerConnection({
-                iceServers: [{ urls: ["stun:stun.omikron.methanium.net:5349"] }],
+                iceServers: [
+                    { urls: ["stun:stun.omikron.methanium.net:5349"] },
+                ],
                 iceCandidatePoolSize: 10,
             });
             peerConnections.current.set(remoteUserId, pc);
@@ -86,11 +89,9 @@ export function VoiceCall() {
                     "debug",
                     "Voice WebSocket:",
                 );
-                localStream.current
-                    .getTracks()
-                    .forEach((track) => {
-                        pc.addTrack(track, localStream.current);
-                    });
+                localStream.current.getTracks().forEach((track) => {
+                    pc.addTrack(track, localStream.current);
+                });
             } else {
                 log(
                     `NO LOCAL STREAM AVAILABLE TO ADD FOR ${remoteUserId}. This should not happen if identification logic is correct.`,
@@ -109,11 +110,18 @@ export function VoiceCall() {
                     send({
                         type: "webrtc_ice",
                         data: {
-                            payload: await encrypt_base64_using_aes(btoa(JSON.stringify(event.candidate)), currentCall.secret),
+                            payload: await encrypt_base64_using_aes(
+                                btoa(JSON.stringify(event.candidate)),
+                                currentCall.secret,
+                            ),
                             receiver_id: remoteUserId,
                         },
                     });
-                    log(`Sent ICE candidate to ${remoteUserId}.`, "debug", "Voice WebSocket:");
+                    log(
+                        `Sent ICE candidate to ${remoteUserId}.`,
+                        "debug",
+                        "Voice WebSocket:",
+                    );
                 } else {
                     log(
                         `ICE candidate gathering complete for ${remoteUserId}.`,
@@ -142,7 +150,9 @@ export function VoiceCall() {
                     );
                     remoteStream.addTrack(track);
                 });
-                setConnectedPeers((prev) => Array.from(new Set([...prev, remoteUserId])));
+                setConnectedPeers((prev) =>
+                    Array.from(new Set([...prev, remoteUserId])),
+                );
             };
 
             if (isInitiator) {
@@ -163,11 +173,18 @@ export function VoiceCall() {
                         send({
                             type: "webrtc_sdp",
                             data: {
-                                payload: await encrypt_base64_using_aes(btoa(JSON.stringify(offer)), currentCall.secret),
+                                payload: await encrypt_base64_using_aes(
+                                    btoa(JSON.stringify(offer)),
+                                    currentCall.secret,
+                                ),
                                 receiver_id: remoteUserId,
                             },
                         });
-                        log(`Sent offer SDP to ${remoteUserId}.`, "debug", "Voice WebSocket:");
+                        log(
+                            `Sent offer SDP to ${remoteUserId}.`,
+                            "debug",
+                            "Voice WebSocket:",
+                        );
                     } catch (error) {
                         log(
                             `Error creating or sending offer: ${error}`,
@@ -196,7 +213,9 @@ export function VoiceCall() {
                     );
                     peerConnections.current.delete(remoteUserId);
                     remoteAudioRefs.current.delete(remoteUserId);
-                    setConnectedPeers((prev) => prev.filter((id) => id !== remoteUserId));
+                    setConnectedPeers((prev) =>
+                        prev.filter((id) => id !== remoteUserId),
+                    );
                 } else if (pc.connectionState === "connected") {
                     log(
                         `Successfully connected to ${remoteUserId}.`,
@@ -217,32 +236,37 @@ export function VoiceCall() {
             ...prevData,
             connected: readyState === ReadyState.OPEN,
         }));
-    }, [readyState])
+    }, [readyState]);
 
     useEffect(() => {
         setCurrentCall((prevData) => ({
             ...prevData,
             users: connectedPeers,
         }));
-    }, [connectedPeers])
+    }, [connectedPeers]);
 
     // Get Mic as soon as voice call loads
     useEffect(() => {
-        if (!currentCall.mute) {
-            let getMedia = async () => {
-                try {
-                    let stream = await navigator.mediaDevices.getUserMedia({
-                        audio: true,
-                    });
-                    localStream.current = stream;
-                } catch (err) {
-                    log(err.message, "error", "Voice WebSocket:");
-                }
-            };
+        let getMedia = async () => {
+            try {
+                let stream = await navigator.mediaDevices.getUserMedia({
+                    audio: true,
+                });
+                localStream.current = stream;
+            } catch (err) {
+                log(err.message, "error", "Voice WebSocket:");
+            }
+        };
 
-            getMedia();
-        } else {
-            localStream.current = null;
+        getMedia();
+    }, []);
+
+    // Mute
+    useEffect(() => {
+        if (localStream.current) {
+            localStream.current.getAudioTracks().forEach((track) => {
+                track.enabled = !currentCall.mute;
+            });
         }
     }, [currentCall.mute]);
 
@@ -254,7 +278,7 @@ export function VoiceCall() {
             let message;
             try {
                 message = JSON.parse(lastMessage.data);
-                log(message, "debug", "Voice WebSocket:")
+                log(message, "debug", "Voice WebSocket:");
             } catch (err) {
                 console.log(lastMessage.data, err.message);
                 return;
@@ -279,17 +303,25 @@ export function VoiceCall() {
 
                 case "client_closed":
                     let disconnectedUser = message.data.user_id;
-                    let toBeClosedPeerConnection = peerConnections.current.get(disconnectedUser);
-                    toBeClosedPeerConnection.close();
+                    let toBeClosedPeerConnection =
+                        peerConnections.current.get(disconnectedUser);
+                    if (toBeClosedPeerConnection) {
+                        toBeClosedPeerConnection.close();
+                    }
 
                     setCurrentCall((prevData) => ({
                         ...prevData,
-                        users: prevData.users.filter(user => user !== disconnectedUser)
+                        users: prevData.users.filter(
+                            (user) => user !== disconnectedUser,
+                        ),
                     }));
                     break;
 
                 case "webrtc_sdp":
-                    let sdp_payload_b64 = await decrypt_base64_using_aes(message.data.payload, currentCall.secret);
+                    let sdp_payload_b64 = await decrypt_base64_using_aes(
+                        message.data.payload,
+                        currentCall.secret,
+                    );
                     let sdp_sender = message.data.sender_id;
 
                     let sdp_payload;
@@ -327,7 +359,10 @@ export function VoiceCall() {
                             send({
                                 type: "webrtc_sdp",
                                 data: {
-                                    payload: await encrypt_base64_using_aes(btoa(JSON.stringify(answer)), currentCall.secret),
+                                    payload: await encrypt_base64_using_aes(
+                                        btoa(JSON.stringify(answer)),
+                                        currentCall.secret,
+                                    ),
                                     receiver_id: sdp_sender,
                                 },
                             });
@@ -341,7 +376,10 @@ export function VoiceCall() {
                     }
                     break;
                 case "webrtc_ice":
-                    let ice_payload_b64 = await decrypt_base64_using_aes(message.data.payload, currentCall.secret);
+                    let ice_payload_b64 = await decrypt_base64_using_aes(
+                        message.data.payload,
+                        currentCall.secret,
+                    );
                     let ice_sender = message.data.sender_id;
 
                     let ice_payload;
@@ -356,7 +394,8 @@ export function VoiceCall() {
                         return;
                     }
 
-                    let pcForCandidate = peerConnections.current.get(ice_sender);
+                    let pcForCandidate =
+                        peerConnections.current.get(ice_sender);
                     if (pcForCandidate && ice_payload) {
                         try {
                             await pcForCandidate.addIceCandidate(
@@ -405,7 +444,7 @@ export function VoiceCall() {
                     },
                 });
             }
-            asyncSend()
+            asyncSend();
         }
     }, [currentCall.connected, identified, privateKeyHash, send]);
 
@@ -414,17 +453,17 @@ export function VoiceCall() {
         let interval;
         if (currentCall.connected) {
             interval = setInterval(async () => {
-                let time = Date.now()
+                let time = Date.now();
                 send({
                     type: "ping",
                     log: {
                         message: "Ping from Client",
-                        log_level: -1
+                        log_level: -1,
                     },
                     data: {
-                        last_ping: time
-                    }
-                })
+                        last_ping: time,
+                    },
+                });
             }, 10000);
         } else {
             clearInterval(interval);
@@ -468,7 +507,7 @@ export function VoiceCall() {
                                     if (el) el.srcObject = remoteStream;
                                 }}
                                 autoPlay
-                                controls
+                                muted={currentCall.deaf}
                             />
                         )}
                     </div>

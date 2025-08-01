@@ -2,12 +2,12 @@
 
 // Package Imports
 import React, {
-    createContext,
-    useContext,
-    useEffect,
-    useState,
+	createContext,
+	useContext,
+	useEffect,
+	useState,
 } from "react";
-import { v7 } from "uuid"
+import { v7 } from "uuid";
 
 // Lib Imports
 import { log, getDisplayFromUsername } from "@/lib/utils";
@@ -19,166 +19,187 @@ let UsersContext = createContext();
 
 // Use Context Function
 export function useUsersContext() {
-    let context = useContext(UsersContext);
-    if (context === undefined) {
-        throw new Error(
-            "useUsersContext must be used within a UsersProvider",
-        );
-    }
-    return context;
+	let context = useContext(UsersContext);
+	if (context === undefined) {
+		throw new Error(
+			"useUsersContext must be used within a UsersProvider",
+		);
+	}
+	return context;
 }
 
 // Provider
 export function UsersProvider({ children }) {
-    let [fetchedUsers, setFetchedUsers] = useState({});
-    let [userStates, setUserStates] = useState({})
-    let [chatsArray, setChatsArray] = useState([])
-    let [shouldCreateCall, setShouldCreateCall] = useState(false);
-    let [gettingCalled, setGettingCalled] = useState(false)
-    let [gettingCalledData, setGettingCalledData] = useState({})
-    let [forceLoad, setForceLoad] = useState(false)
-    let [currentCall, setCurrentCall] = useState({
-        connected: false,
-        mute: ls.get('call_mute') === "true",
-        deaf: ls.get('call_deaf') === "true",
-        id: v7(),
-        secret: v7(),
-        users: [],
-    })
+	let [fetchedUsers, setFetchedUsers] = useState({});
+	let [userStates, setUserStates] = useState({});
+	let [chatsArray, setChatsArray] = useState([]);
+	let [shouldCreateCall, setShouldCreateCall] = useState(false);
+	let [gettingCalled, setGettingCalled] = useState(false);
+	let [gettingCalledData, setGettingCalledData] = useState({});
+	let [forceLoad, setForceLoad] = useState(false);
+	let [currentCall, setCurrentCall] = useState({
+		connected: false,
+		mute: ls.get("call_mute") === "true",
+		deaf: ls.get("call_deaf") === "true",
+		id: v7(),
+		secret: v7(),
+		users: [],
+	});
+	const [callConnectionResolver, setCallConnectionResolver] =
+		useState(null);
 
-    useEffect(() => {
-        ls.set('call_mute', currentCall.mute ? "true" : "false")
-        ls.set('call_deaf', currentCall.deaf ? "true" : "false")
-    }, [currentCall.mute, currentCall.deaf])
+	useEffect(() => {
+		ls.set("call_mute", currentCall.mute ? "true" : "false");
+		ls.set("call_deaf", currentCall.deaf ? "true" : "false");
+	}, [currentCall.mute, currentCall.deaf]);
 
-    function startVoiceCall(id, secret, receiver) {
-        if (typeof (id) !== "undefined" && typeof (secret) !== "undefined") {
-            setCurrentCall((prevData) => ({
-                ...prevData,
-                id: id,
-                secret: secret,
-            }))
-        }
+	// Effect to resolve the connection promise when the call connects
+	useEffect(() => {
+		if (currentCall.connected && callConnectionResolver) {
+			callConnectionResolver();
+			setCallConnectionResolver(null);
+		}
+	}, [currentCall.connected, callConnectionResolver]);
 
-        setShouldCreateCall(true)
-    }
+	async function startVoiceCall(id, secret) {
+		const connectionPromise = new Promise((resolve) => {
+			// Store the resolver function in state so the effect can call it
+			setCallConnectionResolver(() => resolve);
+		});
 
-    function stopVoiceCall() {
-        setShouldCreateCall(false)
-        setCurrentCall((prevCall) => ({
-            ...prevCall,
-            connected: false,
-            id: v7(),
-            secret: v7(),
-            users: [],
-        }))
-    }
+		if (typeof id !== "undefined" && typeof secret !== "undefined") {
+			setCurrentCall((prevData) => ({
+				...prevData,
+				id: id,
+				secret: secret,
+			}));
+		}
 
-    function getUserState(uuid) {
-        if (userStates[uuid]) {
-            return userStates[uuid]
-        } else {
-            return "none"
-        }
-    }
+		setShouldCreateCall(true);
 
-    function setUserState(uuid, state) {
-        setUserStates((prevUsers) => ({
-            ...prevUsers,
-            [uuid]: state,
-        }));
-    }
+		// Wait until the useEffect resolves the promise
+		await connectionPromise;
+	}
 
-    function makeChatTop(uuid) {
-        let newArray = [...chatsArray];
-        let indexToMove = newArray.findIndex((item) => item.user_id === uuid);
-        if (indexToMove > 0) {
-            let [itemToMove] = newArray.splice(indexToMove, 1);
-            newArray.unshift(itemToMove)
-            setChatsArray(newArray)
-        }
-    }
+	function stopVoiceCall() {
+		setShouldCreateCall(false);
+		setCurrentCall((prevCall) => ({
+			...prevCall,
+			connected: false,
+			id: v7(),
+			secret: v7(),
+			users: [],
+		}));
+	}
 
-    async function get(uuid) {
-        if (typeof(uuid) !== "undefined") {
-            if (fetchedUsers[uuid]) {
-                log("User already fetched: " + uuid, "debug")
-                return fetchedUsers[uuid];
-            } else {
-                let fetchedUser = await fetch(`${endpoint.user}${uuid}`)
-                    .then((response) => response.json())
-                    .then((data) => {
-                        if (data.type !== "error") {
-                            return data.data;
-                        } else {
-                            log(data.log.message, "error");
-                            return null;
-                        }
-                    })
-                    .catch((error) => {
-                        log(
-                            `Network error fetching user ${uuid}: ${error.message}`,
-                            "error",
-                        );
-                        return null;
-                    });
+	function getUserState(uuid) {
+		if (userStates[uuid]) {
+			return userStates[uuid];
+		} else {
+			return "none";
+		}
+	}
 
-                if (!fetchedUser) {
-                    return undefined;
-                }
+	function setUserState(uuid, state) {
+		setUserStates((prevUsers) => ({
+			...prevUsers,
+			[uuid]: state,
+		}));
+	}
 
-                let userToStore = {
-                    uuid: uuid,
-                    created_at: fetchedUser.created_at,
-                    username: fetchedUser.username,
-                    display: getDisplayFromUsername(fetchedUser.username, fetchedUser.display),
-                    avatar: fetchedUser.avatar,
-                    about: atob(fetchedUser.about),
-                    status: fetchedUser.status,
-                    public_key: fetchedUser.public_key,
-                    sub_level: fetchedUser.sub_level,
-                    sub_end: fetchedUser.sub_end,
-                };
+	function makeChatTop(uuid) {
+		let newArray = [...chatsArray];
+		let indexToMove = newArray.findIndex((item) => item.user_id === uuid);
+		if (indexToMove > 0) {
+			let [itemToMove] = newArray.splice(indexToMove, 1);
+			newArray.unshift(itemToMove);
+			setChatsArray(newArray);
+		}
+	}
 
-                setFetchedUsers((prevUsers) => ({
-                    ...prevUsers,
-                    [uuid]: userToStore,
-                }));
+	async function get(uuid) {
+		if (typeof uuid !== "undefined") {
+			if (fetchedUsers[uuid]) {
+				log("User already fetched: " + uuid, "debug");
+				return fetchedUsers[uuid];
+			} else {
+				let fetchedUser = await fetch(`${endpoint.user}${uuid}`)
+					.then((response) => response.json())
+					.then((data) => {
+						if (data.type !== "error") {
+							return data.data;
+						} else {
+							log(data.log.message, "error");
+							return null;
+						}
+					})
+					.catch((error) => {
+						log(
+							`Network error fetching user ${uuid}: ${error.message}`,
+							"error",
+						);
+						return null;
+					});
 
-                return userToStore;
-            }
-        } else {
-            return {}
-        }
-    }
+				if (!fetchedUser) {
+					return undefined;
+				}
 
-    return (
-        <UsersContext.Provider
-            value={{
-                get,
-                fetchedUsers,
-                userStates,
-                getUserState,
-                setUserState,
-                setUserStates,
-                chatsArray,
-                setChatsArray,
-                makeChatTop,
-                currentCall,
-                setCurrentCall,
-                shouldCreateCall,
-                startVoiceCall,
-                stopVoiceCall,
-                forceLoad,
-                setForceLoad,
-                gettingCalled,
-                setGettingCalled,
-                gettingCalledData,
-                setGettingCalledData,
-                ownUuid: ls.get("auth_uuid"),
-            }}
-        >
-            {children}
-        </UsersContext.Provider>
-    );
+				let userToStore = {
+					uuid: uuid,
+					created_at: fetchedUser.created_at,
+					username: fetchedUser.username,
+					display: getDisplayFromUsername(
+						fetchedUser.username,
+						fetchedUser.display,
+					),
+					avatar: fetchedUser.avatar,
+					about: atob(fetchedUser.about),
+					status: fetchedUser.status,
+					public_key: fetchedUser.public_key,
+					sub_level: fetchedUser.sub_level,
+					sub_end: fetchedUser.sub_end,
+				};
+
+				setFetchedUsers((prevUsers) => ({
+					...prevUsers,
+					[uuid]: userToStore,
+				}));
+
+				return userToStore;
+			}
+		} else {
+			return {};
+		}
+	}
+
+	return (
+		<UsersContext.Provider
+			value={{
+				get,
+				fetchedUsers,
+				userStates,
+				getUserState,
+				setUserState,
+				setUserStates,
+				chatsArray,
+				setChatsArray,
+				makeChatTop,
+				currentCall,
+				setCurrentCall,
+				shouldCreateCall,
+				startVoiceCall,
+				stopVoiceCall,
+				forceLoad,
+				setForceLoad,
+				gettingCalled,
+				setGettingCalled,
+				gettingCalledData,
+				setGettingCalledData,
+				ownUuid: ls.get("auth_uuid"),
+			}}
+		>
+			{children}
+		</UsersContext.Provider>
+	);
 }

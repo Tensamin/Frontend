@@ -44,7 +44,7 @@ export let WebSocketProvider = ({ children }) => {
   let pendingRequests = useRef(new Map());
   let responseTimeout = 10000;
   let { decrypt_base64_using_privkey } = useEncryptionContext();
-  let { privateKeyHash, IotaUUID } = useCryptoContext();
+  let { privateKeyHash, privateKey, IotaUUID } = useCryptoContext();
   let { setUserState, setUserStates, forceLoad, setForceLoad, setGettingCalled, setGettingCalledData } = useUsersContext();
   let [iotaPing, setIotaPing] = useState("?");
   let [clientPing, setClientPing] = useState("?");
@@ -75,7 +75,7 @@ export let WebSocketProvider = ({ children }) => {
           setGettingCalledData({
             sender_id: message.data.sender_id,
             call_id: message.data.call_id,
-            call_secret: await decrypt_base64_using_privkey(message.data.call_secret, privateKeyHash),
+            call_secret: await decrypt_base64_using_privkey(message.data.call_secret, privateKey),
           })
           setGettingCalled(true)
           break;

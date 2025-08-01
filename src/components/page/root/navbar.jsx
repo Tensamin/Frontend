@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useEffect, useState } from "react";
 
 // Lib Imports
-import { cn } from "@/lib/utils";
+import { cn, sha256, log } from "@/lib/utils";
 import ls from "@/lib/localStorageManager";
 
 // Context Imports
@@ -14,6 +14,8 @@ import { usePageContext } from "@/components/context/page";
 import { useMessageContext } from "@/components/context/messages";
 import { useUsersContext } from "@/components/context/users";
 import { useThemeProvider } from "@/components/context/theme";
+import { useEncryptionContext } from "@/components/context/encryption";
+import { useWebSocketContext } from "@/components/context/websocket";
 
 // Components
 import { SidebarTrigger } from "@/components/ui/sidebar";
@@ -45,10 +47,12 @@ let itemVariants = {
 // Main
 export function Navbar() {
     let { sidebarRightSide } = useThemeProvider();
-    let { get, startVoiceCall } = useUsersContext();
+    let { get, startVoiceCall, currentCall } = useUsersContext();
     let { open } = useSidebar();
     let { setPage } = usePageContext();
     let { failedMessages, navbarLoading, navbarLoadingMessage, receiver } = useMessageContext();
+    let { encrypt_base64_using_pubkey } = useEncryptionContext();
+    let { send } = useWebSocketContext();
 
     let [receiverDisplay, setReceiverDisplay] = useState("")
 
@@ -189,8 +193,22 @@ export function Navbar() {
                             <Button
                                 className="w-9 h-9"
                                 variant="outline"
-                                onClick={() => {
-                                    startVoiceCall(undefined, undefined, receiver)
+                                onClick={async () => {
+                                    await startVoiceCall(undefined, undefined)
+                                    send("call_invite", {
+                                        message: `Invited ${receiver} to the call ${currentCall.receiver}`,
+                                        log_level: 0,
+                                    }, {
+                                        receiver_id: receiver,
+                                        call_id: currentCall.id,
+                                        call_secret: await encrypt_base64_using_pubkey(btoa(currentCall.secret), await get(receiver).then(a => {return a.public_key})),
+                                        call_secret_sha: await sha256(currentCall.secret),
+                                    })
+                                    .then(data => {
+                                        if (data.type === "error") {
+                                            log(data.log.message, "showError")
+                                        }
+                                    })
                                 }}
                             >
                                 <Icon.PhoneCall />

@@ -4,7 +4,7 @@ import * as Icon from "lucide-react"
 import { toast } from "sonner"
 
 // Lib Imports
-import { copyTextToClipboard, sha256 } from "@/lib/utils";
+import { copyTextToClipboard, sha256, log } from "@/lib/utils";
 import ls from "@/lib/localStorageManager";
 
 // Context Imports
@@ -121,6 +121,13 @@ function InviteItem({ id, onShouldClose }) {
                     call_id: currentCall.id,
                     call_secret: await encrypt_base64_using_pubkey(btoa(currentCall.secret), publicKey),
                     call_secret_sha: await sha256(currentCall.secret),
+                })
+                .then(data => {
+                    if (data.type !== "error") {
+                        log("Sent Invite", "success")
+                    } else {
+                        log(data.log.message, "showError")
+                    }
                 })
                 onShouldClose(false)
             }}

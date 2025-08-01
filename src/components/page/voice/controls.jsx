@@ -36,6 +36,7 @@ export function VoiceControls() {
             setCurrentCall((prevCall) => ({
                 ...prevCall,
                 mute: false,
+                deaf: false,
             }))
         } else {
             setCurrentCall((prevCall) => ({
@@ -54,6 +55,7 @@ export function VoiceControls() {
         } else {
             setCurrentCall((prevCall) => ({
                 ...prevCall,
+                mute: true,
                 deaf: true,
             }))
         }
@@ -151,15 +153,15 @@ export function VoiceControls() {
             <div className="relative">
                 <div className="flex flex-wrap flex-row justify-start rounded-xl">
                     <div className={`flex flex-wrap flex-row justify-start gap-1.5 px-1.5 py-2.5 rounded-xl border-1 min-h-13 max-h-50 w-full ${expandUsers ? "overflow-auto" : "overflow-hidden"}`}>
-                        {currentCall.users.length !== 0 ? currentCall.users.map((chat) => (
-                            <InviteItem id={chat.user_id} key={chat.user_id} />
-                        )) : (
+                        {currentCall.users.length !== 0 ? currentCall.users.map((chat) =>
+                            <InviteItem id={chat} key={chat} />
+                        ) : (
                             <div className="text-sm w-full gap-3 flex items-center justify-center">
                                 <Bouncy
                                     size="25"
                                     speed="1.75"
                                     color="var(--foreground)"
-                                /> 
+                                />
                                 Waiting for others...
                             </div>
                         )}
@@ -201,6 +203,7 @@ function InviteItem({ id }) {
             display={profile.display}
             username={profile.username}
             avatar={profile.avatar}
+            key={id}
         />
     ) : null
 }

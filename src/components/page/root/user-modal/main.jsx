@@ -29,7 +29,7 @@ import {
 } from "@/components/ui/tooltip"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Badge } from "@/components/ui/badge"
-import { VoiceControls } from "@/components/page/root/user-modal/voice"
+import { VoiceControls } from "@/components/page/voice/controls"
 
 // Main
 export function UserModal({ display, username, avatar, status }) {
@@ -89,7 +89,7 @@ export function UserModal({ display, username, avatar, status }) {
         </div>
       </div>
       {currentCall.connected ? (
-        <VoiceControls />
+        <VoiceControls key={currentCall.id}/>
       ) : null}
     </div>
   )
