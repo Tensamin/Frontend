@@ -1,9 +1,9 @@
 // Package Imports
+import React, { useState, useEffect, useMemo, memo, useRef } from "react";
 import * as Icon from "lucide-react";
-import { useState, useEffect, useMemo, memo } from "react"; // Added useMemo and memo
 
 // Lib Imports
-import { copyTextToClipboard } from "@/lib/utils";
+import { log } from "@/lib/utils";
 import ls from "@/lib/localStorageManager";
 
 // Context Imports
@@ -12,7 +12,6 @@ import { usePageContext } from "@/components/context/page";
 
 // Components
 import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -21,10 +20,8 @@ import {
     DropdownMenuContent,
     DropdownMenuGroup,
     DropdownMenuItem,
-    DropdownMenuLabel,
     DropdownMenuPortal,
     DropdownMenuSeparator,
-    DropdownMenuShortcut,
     DropdownMenuSub,
     DropdownMenuSubContent,
     DropdownMenuSubTrigger,
@@ -43,6 +40,63 @@ import { MiniMiniUserModal } from "@/components/page/root/user-modal/main";
 import { Bouncy } from "ldrs/react";
 import "ldrs/react/Bouncy.css";
 
+export function RemoteStreamVideo({ stream, className }) {
+    let canvasRef = useRef(null);
+    let videoRef = useRef(null);
+
+    useEffect(() => {
+        if (!stream || !canvasRef.current) return;
+
+        let videoElement = document.createElement("video");
+        videoRef.current = videoElement;
+
+        videoElement.srcObject = stream;
+        videoElement.playsInline = true;
+        videoElement.muted = true;
+        videoElement.play().catch((error) => {
+            log(`Video play failed for stream ${stream.id}: ${error}`, "showError");
+        });
+
+        let canvasElement = canvasRef.current;
+        let context = canvasElement.getContext("2d");
+        let animationFrameId;
+
+        let renderFrame = () => {
+            if (!videoRef.current) return;
+            if (videoElement.readyState >= 2) {
+                if (canvasElement.width !== videoElement.videoWidth) {
+                    canvasElement.width = videoElement.videoWidth;
+                }
+                if (canvasElement.height !== videoElement.videoHeight) {
+                    canvasElement.height = videoElement.videoHeight;
+                }
+                context.drawImage(
+                    videoElement,
+                    0,
+                    0,
+                    canvasElement.width,
+                    canvasElement.height,
+                );
+            }
+            animationFrameId = requestAnimationFrame(renderFrame);
+        };
+
+        renderFrame();
+
+        return () => {
+            cancelAnimationFrame(animationFrameId);
+            if (videoRef.current) {
+                let tracks = videoRef.current.srcObject?.getTracks();
+                tracks?.forEach((track) => track.stop());
+                videoRef.current.srcObject = null;
+                videoRef.current = null;
+            }
+        };
+    }, [stream]);
+
+    return <canvas ref={canvasRef} className={className} />;
+}
+
 // Main
 export function VoiceControls() {
     let {
@@ -55,6 +109,53 @@ export function VoiceControls() {
     let { setPage } = usePageContext();
 
     let [expandUsers, setExpandUsers] = useState(true);
+    let [streamError, setStreamError] = useState(null);
+
+    let handleStartStream = async () => {
+        setStreamError(null);
+        try {
+            let stream = await navigator.mediaDevices.getDisplayMedia({
+                video: true,
+            });
+
+            let videoTrack = stream.getVideoTracks()[0];
+            if (videoTrack) {
+                videoTrack.addEventListener("ended", handleStopStream);
+            }
+
+            setCurrentCallStream((prev) => ({
+                ...prev,
+                active: true,
+                stream: stream,
+            }));
+
+            if (typeof window !== "undefined" && window.setScreenShareStream) {
+                window.setScreenShareStream(stream);
+            }
+        } catch (err) {
+            setStreamError("Screen sharing failed: " + err.message);
+            setCurrentCallStream((prev) => ({
+                ...prev,
+                active: false,
+                stream: null,
+            }));
+        }
+    };
+
+    let handleStopStream = () => {
+        if (currentCallStream.stream) {
+            currentCallStream.stream.getTracks().forEach((track) => track.stop());
+        }
+        setCurrentCallStream((prev) => ({
+            ...prev,
+            active: false,
+            stream: null,
+        }));
+
+        if (typeof window !== "undefined" && window.clearScreenShareStream) {
+            window.clearScreenShareStream();
+        }
+    };
 
     function setCurrentCallActive(event) {
         setCurrentCallStream((prev) => ({
@@ -78,50 +179,50 @@ export function VoiceControls() {
     }
 
     function toggleMute() {
-        if (currentCall.mute) {
-            setCurrentCall((prev) => ({
-                ...prev,
-                mute: false,
-                deaf: false,
-            }));
-        } else {
-            setCurrentCall((prev) => ({
-                ...prev,
-                mute: true,
-            }));
-        }
+        setCurrentCall((prev) => ({
+            ...prev,
+            mute: !prev.mute,
+            deaf: !prev.mute ? prev.deaf : false, // Un-deafen if un-muting
+        }));
     }
 
     function toggleDeaf() {
-        if (currentCall.deaf) {
-            setCurrentCall((prev) => ({
-                ...prev,
-                deaf: false,
-            }));
-        } else {
-            setCurrentCall((prev) => ({
-                ...prev,
-                mute: true,
-                deaf: true,
-            }));
-        }
+        setCurrentCall((prev) => ({
+            ...prev,
+            deaf: !prev.deaf,
+            mute: prev.deaf ? prev.mute : true, // Mute if deafening
+        }));
     }
 
     let memoizedUserList = useMemo(
         () =>
             currentCall.users.length !== 0 ? (
-                currentCall.users.map((chat) => <MemoizedInviteItem id={chat} key={chat} />)
+                currentCall.users.map((chat) => (
+                    <MemoizedInviteItem id={chat} key={chat} />
+                ))
             ) : (
                 <div className="flex w-full items-center justify-center gap-3 text-sm">
                     <Bouncy size="25" speed="1.75" color="var(--foreground)" />
                     Waiting for others...
                 </div>
             ),
-        [currentCall.users]
+        [currentCall.users],
     );
+
+    useEffect(() => {
+        if (streamError && streamError !== "") {
+            log(streamError, "showError")
+        }
+    }, [streamError])
 
     return (
         <div className="flex w-full flex-col gap-3">
+            {currentCallStream.active && currentCallStream.stream && (
+                <div className="flex flex-col items-center gap-2">
+                    <RemoteStreamVideo stream={currentCallStream.stream} className="w-full max-w-md rounded-xl border-1" />
+                </div>
+            )}
+
             <Card className="flex flex-row justify-center gap-0 p-2">
                 <div className="flex flex-col gap-2">
                     <div className="flex flex-row gap-2">
@@ -131,9 +232,7 @@ export function VoiceControls() {
                                 <Button
                                     disabled
                                     className="h-9 w-9"
-                                    onClick={() => {
-                                        console.log("Soundboard");
-                                    }}
+                                    onClick={() => console.log("Soundboard")}
                                 >
                                     <Icon.Clapperboard />
                                 </Button>
@@ -149,9 +248,7 @@ export function VoiceControls() {
                                 <Button
                                     disabled
                                     className="h-9 w-9"
-                                    onClick={() => {
-                                        console.log("Camera");
-                                    }}
+                                    onClick={() => console.log("Camera")}
                                 >
                                     <Icon.Camera />
                                 </Button>
@@ -168,13 +265,13 @@ export function VoiceControls() {
                             <DropdownMenu>
                                 <Tooltip delayDuration={2000}>
                                     <TooltipTrigger asChild>
-                                        <DropdownMenuTrigger
-                                            className={`w-9 h-9 ${currentCall.deaf ? "bg-destructive hover:bg-destructive/90" : ""}   h-9 px-4 py-2 has-[>svg]:px-3 bg-primary text-primary-foreground shadow-xs hover:bg-primary/90 inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-all disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 [&_svg]:shrink-0 outline-none focus-visible:border-ring focus-visible:ring-ring/50 focus-visible:ring-[3px] aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive`}
-                                            onClick={() => {
-                                                console.log("Stream");
-                                            }}
-                                        >
-                                            <Icon.Monitor />
+                                        <DropdownMenuTrigger asChild>
+                                            <Button
+                                                variant={currentCallStream.active ? "secondary" : "default"}
+                                                className="h-9 w-9"
+                                            >
+                                                <Icon.Monitor />
+                                            </Button>
                                         </DropdownMenuTrigger>
                                     </TooltipTrigger>
                                     <TooltipContent>
@@ -184,58 +281,28 @@ export function VoiceControls() {
                                 <DropdownMenuContent>
                                     <DropdownMenuGroup heading="Actions">
                                         <DropdownMenuItem
-                                            htmlFor="start-stream"
                                             disabled={currentCallStream.active}
-                                            onClick={() => {
-                                                setCurrentCallStream((prev) => ({
-                                                    ...prev,
-                                                    active: true,
-                                                }));
-                                            }}
+                                            onClick={handleStartStream}
                                         >
-                                            <Icon.MonitorCheck />
-                                            <Label
-                                                htmlFor="start-stream"
-                                                className="text-sm font-normal"
-                                            >
-                                                Start Stream
-                                            </Label>
+                                            <Icon.MonitorCheck className="mr-2" />
+                                            <span>Start Stream</span>
                                         </DropdownMenuItem>
                                         <DropdownMenuItem
-                                            htmlFor="stop-stream"
                                             disabled={!currentCallStream.active}
-                                            onClick={() => {
-                                                setCurrentCallStream((prev) => ({
-                                                    ...prev,
-                                                    active: false,
-                                                }));
-                                            }}
+                                            onClick={handleStopStream}
                                         >
-                                            <Icon.MonitorX />
-                                            <Label
-                                                htmlFor="stop-stream"
-                                                className="text-sm font-normal"
-                                            >
-                                                Stop Stream
-                                            </Label>
+                                            <Icon.MonitorX className="mr-2" />
+                                            <span>Stop Stream</span>
                                         </DropdownMenuItem>
-                                        <DropdownMenuItem
-                                            htmlFor="change-screen"
-                                            disabled={!currentCallStream.active}
-                                        >
-                                            <Icon.ScreenShare id="change-screen" />
-                                            <Label
-                                                htmlFor="change-screen"
-                                                className="text-sm font-normal"
-                                            >
-                                                Change Window
-                                            </Label>
+                                        <DropdownMenuItem disabled={!currentCallStream.active}>
+                                            <Icon.ScreenShare className="mr-2" />
+                                            <span>Change Window</span>
                                         </DropdownMenuItem>
                                     </DropdownMenuGroup>
                                     <DropdownMenuSeparator />
                                     <DropdownMenuGroup heading="Controls">
-                                        <DropdownMenuItem htmlFor="stream-audio">
-                                            <Icon.Volume2 />
+                                        <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
+                                            <Icon.Volume2 className="mr-2" />
                                             <Label
                                                 htmlFor="stream-audio"
                                                 className="w-full text-sm font-normal"
@@ -250,14 +317,8 @@ export function VoiceControls() {
                                         </DropdownMenuItem>
                                         <DropdownMenuSub>
                                             <DropdownMenuSubTrigger>
-                                                <Icon.MonitorCog id="change-resolution" />
-                                                <Label
-                                                    htmlFor="change-resolution"
-                                                    className="text-sm font-normal"
-                                                >
-                                                    Change Quality
-                                                </Label>
-                                                <Icon.ChevronRightIcon />
+                                                <Icon.MonitorCog className="mr-2" />
+                                                <span>Change Quality</span>
                                             </DropdownMenuSubTrigger>
                                             <DropdownMenuPortal>
                                                 <DropdownMenuSubContent>
@@ -267,30 +328,29 @@ export function VoiceControls() {
                                                             defaultValue={currentCallStream.refresh}
                                                             onValueChange={changeStreamRefresh}
                                                         >
-                                                            <DropdownMenuItem className="flex items-center gap-2">
+                                                            <DropdownMenuItem>
                                                                 <RadioGroupItem value="15" id="15" />
-                                                                <Label className="w-full" htmlFor="15">
-                                                                    15
+                                                                <Label className="w-full pl-2" htmlFor="15">
+                                                                    15 FPS
                                                                 </Label>
                                                             </DropdownMenuItem>
-                                                            <DropdownMenuItem className="flex items-center gap-2">
+                                                            <DropdownMenuItem>
                                                                 <RadioGroupItem value="30" id="30" />
-                                                                <Label className="w-full" htmlFor="30">
-                                                                    30
+                                                                <Label className="w-full pl-2" htmlFor="30">
+                                                                    30 FPS
                                                                 </Label>
                                                             </DropdownMenuItem>
-                                                            <DropdownMenuItem className="flex items-center gap-2">
+                                                            <DropdownMenuItem>
                                                                 <RadioGroupItem value="60" id="60" />
-                                                                <Label className="w-full" htmlFor="60">
-                                                                    60
+                                                                <Label className="w-full pl-2" htmlFor="60">
+                                                                    60 FPS
                                                                 </Label>
                                                             </DropdownMenuItem>
-                                                            <DropdownMenuItem className="flex items-center gap-2">
+                                                            <DropdownMenuItem>
                                                                 <RadioGroupItem value="120" id="120" />
-                                                                <Label className="w-full" htmlFor="120">
-                                                                    120
+                                                                <Label className="w-full pl-2" htmlFor="120">
+                                                                    120 FPS
                                                                 </Label>
-                                                                <Icon.Gem />
                                                             </DropdownMenuItem>
                                                         </RadioGroup>
                                                     </DropdownMenuGroup>
@@ -301,31 +361,29 @@ export function VoiceControls() {
                                                             defaultValue={currentCallStream.resolution}
                                                             onValueChange={changeStreamResolution}
                                                         >
-                                                            <DropdownMenuItem className="flex items-center gap-2">
+                                                            <DropdownMenuItem>
                                                                 <RadioGroupItem value="480" id="480" />
-                                                                <Label className="w-full" htmlFor="480">
-                                                                    480
+                                                                <Label className="w-full pl-2" htmlFor="480">
+                                                                    480p
                                                                 </Label>
                                                             </DropdownMenuItem>
-                                                            <DropdownMenuItem className="flex items-center gap-2">
+                                                            <DropdownMenuItem>
                                                                 <RadioGroupItem value="720" id="720" />
-                                                                <Label className="w-full" htmlFor="720">
-                                                                    720
+                                                                <Label className="w-full pl-2" htmlFor="720">
+                                                                    720p
                                                                 </Label>
                                                             </DropdownMenuItem>
-                                                            <DropdownMenuItem className="flex items-center gap-2">
+                                                            <DropdownMenuItem>
                                                                 <RadioGroupItem value="1080" id="1080" />
-                                                                <Label className="w-full" htmlFor="1080">
-                                                                    1080{" "}
+                                                                <Label className="w-full pl-2" htmlFor="1080">
+                                                                    1080p
                                                                 </Label>
-                                                                <Icon.Gem />
                                                             </DropdownMenuItem>
-                                                            <DropdownMenuItem className="flex items-center gap-2">
+                                                            <DropdownMenuItem>
                                                                 <RadioGroupItem value="2560" id="2560" />
-                                                                <Label className="w-full" htmlFor="2560">
-                                                                    2560{" "}
+                                                                <Label className="w-full pl-2" htmlFor="2560">
+                                                                    2560p
                                                                 </Label>
-                                                                <Icon.Gem />
                                                             </DropdownMenuItem>
                                                         </RadioGroup>
                                                     </DropdownMenuGroup>
@@ -340,10 +398,7 @@ export function VoiceControls() {
                         {/* ? */}
                         <Tooltip delayDuration={2000}>
                             <TooltipTrigger asChild>
-                                <Button
-                                    disabled
-                                    className="h-9 w-9"
-                                >
+                                <Button disabled className="h-9 w-9">
                                     <Icon.Bomb />
                                 </Button>
                             </TooltipTrigger>
@@ -354,7 +409,7 @@ export function VoiceControls() {
                     </div>
                 </div>
 
-                <div className="flex w-full justify-center">
+                <div className="w-full justify-center">
                     <div className="border-l-1 pl-0.5" />
                 </div>
 
@@ -365,9 +420,7 @@ export function VoiceControls() {
                             <TooltipTrigger asChild>
                                 <Button
                                     className="h-9 w-9"
-                                    onClick={() => {
-                                        setPage({ name: "voice", data: "" });
-                                    }}
+                                    onClick={() => setPage({ name: "voice", data: "" })}
                                 >
                                     <Icon.Expand />
                                 </Button>
@@ -382,9 +435,7 @@ export function VoiceControls() {
                             <TooltipTrigger asChild>
                                 <Button
                                     className="h-9 w-9 bg-destructive hover:bg-destructive/90"
-                                    onClick={() => {
-                                        stopVoiceCall();
-                                    }}
+                                    onClick={stopVoiceCall}
                                 >
                                     <Icon.PhoneOutgoing />
                                 </Button>
@@ -404,9 +455,7 @@ export function VoiceControls() {
                                         ? "bg-destructive hover:bg-destructive/90"
                                         : ""
                                         }`}
-                                    onClick={() => {
-                                        toggleMute();
-                                    }}
+                                    onClick={toggleMute}
                                 >
                                     {currentCall.mute ? <Icon.MicOff /> : <Icon.Mic />}
                                 </Button>
@@ -424,9 +473,7 @@ export function VoiceControls() {
                                         ? "bg-destructive hover:bg-destructive/90"
                                         : ""
                                         }`}
-                                    onClick={() => {
-                                        toggleDeaf(); // der aus Rainbow Six :)
-                                    }}
+                                    onClick={toggleDeaf}
                                 >
                                     {currentCall.deaf ? (
                                         <Icon.HeadphoneOff />
@@ -443,7 +490,7 @@ export function VoiceControls() {
                 </div>
             </Card>
             {currentCall.users.length >= 25 ? (
-                <div className="flex gap-2">
+                <div className="flex items-center gap-2">
                     <Switch
                         id="expand-users"
                         checked={expandUsers}
@@ -472,34 +519,22 @@ export function VoiceControls() {
 
 let MemoizedInviteItem = memo(function InviteItem({ id }) {
     let { get } = useUsersContext();
-
-    let [fetched, setFetched] = useState(false);
-    let [profile, setProfile] = useState({
-        display: "...",
-        username: "...",
-        avatar: "",
-    });
+    let [profile, setProfile] = useState(null);
 
     useEffect(() => {
-        if (id !== "") {
-            get(id).then((data) => {
-                setProfile((prev) => ({
-                    ...prev,
-                    display: data.display,
-                    username: data.username,
-                    avatar: data.avatar,
-                }));
-                setFetched(true);
-            });
+        if (id) {
+            get(id).then(setProfile);
         }
     }, [id, get]);
 
-    return fetched ? (
+    if (!profile) return null;
+
+    return (
         <MiniMiniUserModal
             display={profile.display}
             username={profile.username}
             avatar={profile.avatar}
             key={id}
         />
-    ) : null;
+    );
 });
