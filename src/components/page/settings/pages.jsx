@@ -1,7 +1,6 @@
 // Package Imports
 import { HexColorPicker } from "react-colorful";
 import { useEffect, useState, useMemo } from "react";
-import { useTheme } from "next-themes";
 import { toast } from "sonner";
 import * as Icon from "lucide-react";
 
@@ -170,7 +169,6 @@ export function Profile() {
 }
 
 export function Appearance() {
-  let { setTheme } = useTheme();
   let { sidebarRightSide, setSidebarRightSide } = useActualThemeProvider();
 
   let [tmpColor, setTmpColor] = useState(ls.get("theme_hex") || "");
@@ -189,7 +187,6 @@ export function Appearance() {
   useEffect(() => {
     if (tmpColor && isHexColor(tmpColor)) {
       ls.set("theme_hex", tmpColor);
-      setTheme(tmpColor);
 
       let palette;
       if (tint === "soft") {
