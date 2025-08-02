@@ -1,21 +1,27 @@
 // Package Imports
 import { useRef, useState, useEffect, useCallback } from "react";
 import useWebSocket, { ReadyState } from "react-use-websocket";
+import Image from "next/image"
 
 // Lib Imports
 import { endpoint } from "@/lib/endpoints";
-import { log, sha256 } from "@/lib/utils";
+import { log, sha256, convertDisplayNameToInitials } from "@/lib/utils";
 
 // Context Imports
 import { useCryptoContext } from "@/components/context/crypto";
 import { useUsersContext } from "@/components/context/users";
 import { useEncryptionContext } from "@/components/context/encryption";
 import { useMessageContext } from "@/components/context/messages";
+import { useWebSocketContext } from "@/components/context/websocket";
+
+// Components
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Skeleton } from "@/components/ui/skeleton";
 
 // Main
 export function VoiceCall() {
     let { privateKeyHash } = useCryptoContext();
-    let { currentCall, setCurrentCall, currentCallStream, setCurrentCallStream, ownUuid, get } = useUsersContext();
+    let { currentCall, setCurrentCall, setCurrentCallStream, ownUuid, get } = useUsersContext();
 
     let screenStreamRef = useRef(null); // Consolidated to single ref for screen streams
 
@@ -838,6 +844,52 @@ export function RemoteStreamVideo({ stream, className }) {
     }, [stream]);
 
     return <canvas ref={canvasRef} className={className} />;
+}
+
+export function User({ id, className, avatarSize }) {
+    let [display, setDisplay] = useState("...");
+    let [username, setUsername] = useState("...");
+    let [avatar, setAvatar] = useState("...");
+    let { get } = useUsersContext();
+
+    useEffect(() => {
+        get(id)
+            .then(data => {
+                setDisplay(data.display)
+                setUsername(data.username)
+                setAvatar(data.avatar)
+            })
+    }, [id])
+
+    return (
+        <div className={`${className} relative group bg-input/20 rounded-xl flex justify-center items-center`}>
+            {avatar !== "..." ? (
+                <Avatar className={`bg-accent/50 border w-${avatarSize} h-${avatarSize}`}>
+                    {avatar !== "" ? (
+                        <Image
+                            className="w-auto h-auto object-fill"
+                            data-slot="avatar-image"
+                            width={250}
+                            height={250}
+                            src={avatar}
+                            alt=""
+                            onError={() => {
+                                setAvatar("")
+                            }}
+                        />
+                    ) : null}
+                    <AvatarFallback>
+                        {convertDisplayNameToInitials(username)}
+                    </AvatarFallback>
+                </Avatar>
+            ) : (
+                <Skeleton className="rounded-full size-8" />
+            )}
+            <div className="group-hover:block hidden absolute bottom-0 left-0 m-2">
+                {display}
+            </div>
+        </div>
+    )
 }
 
 export function InviteItem({ id, onShouldClose }) {

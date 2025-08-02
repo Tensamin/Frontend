@@ -203,65 +203,6 @@ export function SmallUserModalSkeleton() {
   );
 }
 
-export function VoiceModal({ id }) {
-  let [display, setDisplay] = useState("...");
-  let [username, setUsername] = useState("...");
-  let [avatar, setAvatar] = useState("...");
-  let { get } = useUsersContext();
-
-  useEffect(() => {
-    get(id)
-      .then(data => {
-        setDisplay(data.display)
-        setUsername(data.username)
-        setAvatar(data.avatar)
-      })
-  }, [id])
-
-  return (
-    <div className="rounded-xl flex items-center h-15 pl-3 gap-3 justify-center">
-      <div>
-        <div className="relative w-[35px] h-[35px]">
-          {avatar !== "..." ? (
-            <Avatar className="bg-accent/50">
-              {avatar !== "" ? (
-                <Image
-                  className="w-auto h-auto object-fill"
-                  data-slot="avatar-image"
-                  width={36}
-                  height={36}
-                  src={avatar}
-                  alt=""
-                  onError={() => {
-                    setAvatar("")
-                  }}
-                />
-              ) : null}
-              <AvatarFallback>
-                {convertDisplayNameToInitials(username)}
-              </AvatarFallback>
-            </Avatar>
-          ) : (
-            <Skeleton className="rounded-full size-8" />
-          )}
-        </div>
-      </div>
-      <div className="w-full">
-        <div className="text-[14px] font-bold">{display !== "..." ? (
-          <p>{display}</p>
-        ) : (
-          <Skeleton className="mr-20"><p className="invisible">🥴</p></Skeleton>
-        )}</div>
-        <div className="text-[12px] font-bold text-foreground/67">{username !== "..." ? (
-          <p>{username}</p>
-        ) : (
-          <Skeleton className="mr-8 mt-1"><p className="invisible">🥴</p></Skeleton>
-        )}</div>
-      </div>
-    </div>
-  )
-}
-
 export function MiniUserModal({ display, username, avatar, loading = false }) {
   let [actAvatar, setAvatar] = useState(avatar)
 
