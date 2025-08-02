@@ -16,10 +16,9 @@ import { useMessageContext } from "@/components/context/messages";
 // Main
 export function VoiceCall() {
     let { privateKeyHash } = useCryptoContext();
-    let { currentCall, setCurrentCall, currentCallStream, ownUuid, get } = useUsersContext();
+    let { currentCall, setCurrentCall, currentCallStream, setCurrentCallStream, ownUuid, get } = useUsersContext();
 
-    let screenStreamRef = useRef(null);
-    let localScreenStreamRef = useRef(null); // For our own screen share
+    let screenStreamRef = useRef(null); // Consolidated to single ref for screen streams
 
     let { receiver } = useMessageContext();
     let { encrypt_base64_using_aes, decrypt_base64_using_aes, encrypt_base64_using_pubkey } =
@@ -34,11 +33,40 @@ export function VoiceCall() {
     let [identified, setIdentified] = useState(false);
     let [screenShareActive, setScreenShareActive] = useState(false);
     let [screenShareError, setScreenShareError] = useState(null);
+    let [screenSharePermission, setScreenSharePermission] = useState(false);
 
     // Global screen share management
     useEffect(() => {
+        // Check for screen share permission
+        const checkScreenSharePermission = async () => {
+            try {
+                // Check if getDisplayMedia is available
+                if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
+                    setScreenShareError("Screen sharing is not supported in your browser");
+                    return false;
+                }
+                setScreenSharePermission(true);
+                return true;
+            } catch (err) {
+                setScreenShareError("Screen sharing permission check failed: " + err.message);
+                return false;
+            }
+        };
+
+        checkScreenSharePermission();
+
         // Expose functions to start/stop screen sharing globally
         window.startScreenShare = async () => {
+            if (!screenSharePermission) {
+                setScreenShareError("Screen sharing is not available");
+                return null;
+            }
+
+            if (screenShareActive) {
+                log("Screen share already active", "warning", "Voice WebSocket:");
+                return screenStreamRef.current;
+            }
+
             try {
                 setScreenShareError(null);
                 let stream = await navigator.mediaDevices.getDisplayMedia({
@@ -46,7 +74,7 @@ export function VoiceCall() {
                     audio: true
                 });
 
-                localScreenStreamRef.current = stream;
+                screenStreamRef.current = stream;
                 setScreenShareActive(true);
 
                 // Update currentCallStream in context
@@ -56,15 +84,21 @@ export function VoiceCall() {
                     stream: stream
                 }));
 
-                // Add screen share tracks to all peer connections
+                // Add screen share tracks to all peer connections with error handling
                 peerConnections.current.forEach((pc, userId) => {
-                    stream.getTracks().forEach(track => {
-                        pc.addTrack(track, stream);
-                    });
+                    try {
+                        stream.getTracks().forEach(track => {
+                            pc.addTrack(track, stream);
+                            log(`Added ${track.kind} track to peer ${userId}`, "debug", "Voice WebSocket:");
+                        });
+                    } catch (err) {
+                        log(`Failed to add screen tracks to peer ${userId}: ${err.message}`, "error", "Voice WebSocket:");
+                    }
                 });
 
-                // Handle when user stops sharing
+                // Handle when user stops sharing via browser UI
                 stream.getVideoTracks()[0].addEventListener('ended', () => {
+                    log("Screen share ended by user", "debug", "Voice WebSocket:");
                     window.stopScreenShare();
                 });
 
@@ -78,9 +112,33 @@ export function VoiceCall() {
         };
 
         window.stopScreenShare = () => {
-            if (localScreenStreamRef.current) {
-                localScreenStreamRef.current.getTracks().forEach(track => track.stop());
-                localScreenStreamRef.current = null;
+            if (screenStreamRef.current) {
+                // Stop all tracks
+                screenStreamRef.current.getTracks().forEach(track => {
+                    track.stop();
+                    log(`Stopped ${track.kind} track`, "debug", "Voice WebSocket:");
+                });
+                
+                // Remove tracks from all peer connections
+                peerConnections.current.forEach((pc, userId) => {
+                    try {
+                        // Get senders for this peer connection
+                        const senders = pc.getSenders();
+                        
+                        // Find and remove screen share tracks
+                        screenStreamRef.current.getTracks().forEach(track => {
+                            const sender = senders.find(s => s.track === track);
+                            if (sender) {
+                                pc.removeTrack(sender);
+                                log(`Removed ${track.kind} track from peer ${userId}`, "debug", "Voice WebSocket:");
+                            }
+                        });
+                    } catch (err) {
+                        log(`Failed to remove screen tracks from peer ${userId}: ${err.message}`, "error", "Voice WebSocket:");
+                    }
+                });
+                
+                screenStreamRef.current = null;
             }
             
             setScreenShareActive(false);
@@ -95,15 +153,26 @@ export function VoiceCall() {
             log("Screen sharing stopped", "debug", "Voice WebSocket:");
         };
 
+        // Toggle screen share function
+        window.toggleScreenShare = async () => {
+            if (screenShareActive) {
+                window.stopScreenShare();
+                return false;
+            } else {
+                await window.startScreenShare();
+                return true;
+            }
+        };
+
         // Expose function to get all screen streams (local and remote)
         window.getAllScreenStreams = () => {
             let streams = [];
             
             // Add local screen stream if active
-            if (localScreenStreamRef.current) {
+            if (screenStreamRef.current) {
                 streams.push({
                     type: 'local',
-                    stream: localScreenStreamRef.current
+                    stream: screenStreamRef.current
                 });
             }
             
@@ -125,39 +194,21 @@ export function VoiceCall() {
         window.getScreenStream = (peerId) => {
             if (!peerId) {
                 // Return local screen stream
-                return localScreenStreamRef.current;
+                return screenStreamRef.current;
             }
             
             // Return remote screen stream for specific peer
             return remoteScreenRefs.current.get(peerId);
         };
 
-        // Legacy function for backward compatibility
-        window.setScreenShareStream = (stream) => {
-            screenStreamRef.current = stream;
-            peerConnections.current.forEach((pc) => {
-                stream.getTracks().forEach((track) => {
-                    pc.addTrack(track, stream);
-                });
-            });
-        };
-        
-        window.clearScreenShareStream = () => {
-            if (screenStreamRef.current) {
-                screenStreamRef.current.getTracks().forEach((track) => track.stop());
-                screenStreamRef.current = null;
-            }
-        };
-
         return () => {
             delete window.startScreenShare;
             delete window.stopScreenShare;
+            delete window.toggleScreenShare;
             delete window.getAllScreenStreams;
             delete window.getScreenStream;
-            delete window.setScreenShareStream;
-            delete window.clearScreenShareStream;
         };
-    }, []);
+    }, [screenSharePermission, screenShareActive]);
 
     // Init WebSocket
     let { sendMessage, lastMessage, readyState } = useWebSocket(
@@ -167,6 +218,10 @@ export function VoiceCall() {
             onClose: () => {
                 log("Voice disconnected", "debug", "Voice WebSocket:");
                 setIdentified(false);
+                // Clean up screen share on disconnect
+                if (screenShareActive) {
+                    window.stopScreenShare();
+                }
             },
             onError: (event) => log(event.type, "error", "Voice WebSocket:"),
             shouldReconnect: () => false,
@@ -227,18 +282,27 @@ export function VoiceCall() {
                 });
             }
 
-            // Add screen share tracks if available
-            if (localScreenStreamRef.current) {
+            // Add screen share tracks if available with error handling
+            if (screenStreamRef.current) {
                 log(
                     `Adding screen share tracks to peer connection for ${remoteUserId}.`,
                     "debug",
                     "Voice WebSocket:",
                 );
-                localScreenStreamRef.current.getTracks().forEach((track) => {
-                    pc.addTrack(track, localScreenStreamRef.current);
-                });
+                try {
+                    screenStreamRef.current.getTracks().forEach((track) => {
+                        pc.addTrack(track, screenStreamRef.current);
+                    });
+                } catch (err) {
+                    log(
+                        `Failed to add screen tracks to peer ${remoteUserId}: ${err.message}`,
+                        "error",
+                        "Voice WebSocket:",
+                    );
+                }
             }
-            if (!localStream.current && !localScreenStreamRef.current) {
+            
+            if (!localStream.current && !screenStreamRef.current) {
                 log(
                     `NO LOCAL OR SCREEN STREAM AVAILABLE TO ADD FOR ${remoteUserId}. This should not happen if identification logic is correct.`,
                     "warning",
@@ -695,9 +759,9 @@ export function VoiceCall() {
                 log("Stopped local media tracks.", "debug", "Voice WebSocket:");
             }
 
-            if (localScreenStreamRef.current) {
-                localScreenStreamRef.current.getTracks().forEach((track) => track.stop());
-                localScreenStreamRef.current = null;
+            if (screenStreamRef.current) {
+                screenStreamRef.current.getTracks().forEach((track) => track.stop());
+                screenStreamRef.current = null;
                 log("Stopped local screen share tracks.", "debug", "Voice WebSocket:");
             }
         };

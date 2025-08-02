@@ -208,17 +208,16 @@ export function VoiceControls() {
             {/* Display all screen streams (local and remote) */}
             {screenStreams.length > 0 && (
                 <div className="flex flex-col items-center gap-2">
-                    {screenStreams.map((screenStream, index) => (
-                        <div key={index} className="w-full">
-                            <div className="text-sm text-muted-foreground mb-1">
-                                {screenStream.type === 'local' ? 'Your Screen' : `${screenStream.peerId}'s Screen`}
+                    {screenStreams.map((screenStream, index) => {
+                        return screenStream.type === 'local' && (
+                            <div key={index} className="w-full">
+                                <RemoteStreamVideo
+                                    stream={screenStream.stream}
+                                    className="w-full max-w-md rounded-xl border-1"
+                                />
                             </div>
-                            <RemoteStreamVideo 
-                                stream={screenStream.stream} 
-                                className="w-full max-w-md rounded-xl border-1" 
-                            />
-                        </div>
-                    ))}
+                        )
+                    })}
                 </div>
             )}
 
