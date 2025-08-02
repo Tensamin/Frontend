@@ -38,17 +38,32 @@ export function Main() {
   }, [currentCall.users, ownUuid]);
 
   useEffect(() => {
-    let forceUpdate = () => setTick((t) => t + 1);
+    // Force update function that triggers a re-render
+    let forceUpdate = () => {
+      setTick((t) => t + 1);
+    };
     
     // Listen for remote stream changes to update UI
     window.addEventListener("remote-streams-changed", forceUpdate);
     
     // Set up a timer to periodically refresh the UI to ensure streams are displayed
-    const refreshTimer = setInterval(forceUpdate, 2000);
+    // Use a less frequent refresh (3000ms) to reduce console spam
+    const refreshTimer = setInterval(forceUpdate, 3000);
+    
+    // Set up a check for connection state and stream validity
+    const streamCheckTimer = setInterval(() => {
+      if (typeof window !== "undefined" && window.getAllScreenStreams) {
+        const streams = window.getAllScreenStreams();
+        if (streams.length > 0) {
+          console.log(`Periodic check: found ${streams.length} active screen streams`);
+        }
+      }
+    }, 10000); // Check every 10 seconds instead of 3
     
     return () => {
       window.removeEventListener("remote-streams-changed", forceUpdate);
       clearInterval(refreshTimer);
+      clearInterval(streamCheckTimer);
     };
   }, []);
 
@@ -105,21 +120,43 @@ export function Main() {
           <>
             {/* Get streams and create a map */}
             {(() => {
+              // Get all available screen streams
               const streams = window.getAllScreenStreams();
-              // Improve stream mapping to ensure we don't lose stream references
-              const streamMap = new Map(streams.map(({ type, peerId, stream }) => {
+              
+              // Create a Map of user ID to stream info
+              const streamMap = new Map();
+              
+              // Process streams in a more detailed way
+              streams.forEach(({ type, peerId, stream, endingSoon }) => {
                 // For local streams, use the ownUuid
                 const userId = type === 'local' ? ownUuid : (peerId || ownUuid);
-                return [userId, stream];
-              }));
+                
+                // Check if stream has active video tracks
+                const videoTracks = stream.getVideoTracks();
+                const hasActiveTracks = videoTracks.some(track => 
+                  track.readyState === 'live' && track.enabled && !track.muted
+                );
+                
+                // Store stream with metadata
+                streamMap.set(userId, {
+                  stream,
+                  active: hasActiveTracks,
+                  endingSoon: endingSoon || false,
+                  type
+                });
+              });
 
               // Create combined items array (users and streams)
               const allItems = usersWithSelf.map(userId => {
-                const hasStream = streamMap.has(userId);
+                const hasStreamInfo = streamMap.has(userId);
+                const streamInfo = hasStreamInfo ? streamMap.get(userId) : null;
+                
                 return {
                   id: userId,
-                  isStreaming: hasStream,
-                  stream: hasStream ? streamMap.get(userId) : null
+                  isStreaming: hasStreamInfo && (streamInfo.active || streamInfo.endingSoon),
+                  stream: hasStreamInfo ? streamInfo.stream : null,
+                  endingSoon: hasStreamInfo ? streamInfo.endingSoon : false,
+                  streamType: hasStreamInfo ? streamInfo.type : null
                 };
               });
 
@@ -132,12 +169,19 @@ export function Main() {
                   {/* Focused Item Display */}
                   {focusedItem && (
                     <div className="flex-grow min-h-0">
-                      <div className="w-full h-full">
+                      <div className="w-full h-full relative">
                         {focusedItem.isStreaming ? (
-                          <RemoteStreamVideo
-                            stream={focusedItem.stream}
-                            className="w-full h-full object-contain rounded-xl bg-input/20 border"
-                          />
+                          <>
+                            <RemoteStreamVideo
+                              stream={focusedItem.stream}
+                              className="w-full h-full object-contain rounded-xl bg-input/20 border"
+                            />
+                            {focusedItem.endingSoon && (
+                              <div className="absolute top-2 right-2 bg-destructive text-white px-2 py-1 rounded-md text-sm">
+                                Stream Ended
+                              </div>
+                            )}
+                          </>
                         ) : (
                           <User
                             id={focusedItem.id}
@@ -154,16 +198,28 @@ export function Main() {
                     {otherItems.map(item => (
                       <button
                         key={item.id}
-                        className="w-[16rem] h-[9rem]"
+                        className="w-[16rem] h-[9rem] relative"
                         onClick={() => {
                           setFocused(item.id)
                         }}
                       >
                         {item.isStreaming ? (
-                          <RemoteStreamVideo
-                            stream={item.stream}
-                            className="w-full h-full object-cover rounded-2xl border"
-                          />
+                          <>
+                            <RemoteStreamVideo
+                              stream={item.stream}
+                              className="w-full h-full object-cover rounded-2xl border"
+                            />
+                            {item.endingSoon && (
+                              <div className="absolute top-1 right-1 bg-destructive text-white px-1 py-0.5 rounded text-xs">
+                                Ended
+                              </div>
+                            )}
+                            {item.streamType === 'local' && (
+                              <div className="absolute bottom-1 left-1 bg-primary text-white px-1 py-0.5 rounded text-xs">
+                                You
+                              </div>
+                            )}
+                          </>
                         ) : (
                           <User
                             id={item.id}

@@ -67,8 +67,8 @@ export function VoiceControls() {
         // Initial update
         updateScreenStreams();
 
-        // Set up interval to check for updates more frequently (500ms instead of 1000ms)
-        const interval = setInterval(updateScreenStreams, 500);
+        // Set up interval to check for updates more frequently (1000ms instead of 500ms but still responsive)
+        const interval = setInterval(updateScreenStreams, 1000);
 
         // Cleanup function
         return () => {
