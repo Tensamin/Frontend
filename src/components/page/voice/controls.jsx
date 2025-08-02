@@ -67,10 +67,15 @@ export function VoiceControls() {
         // Initial update
         updateScreenStreams();
 
-        // Set up interval to check for updates
-        const interval = setInterval(updateScreenStreams, 1000);
+        // Set up interval to check for updates more frequently (500ms instead of 1000ms)
+        const interval = setInterval(updateScreenStreams, 500);
 
-        return () => clearInterval(interval);
+        // Cleanup function
+        return () => {
+            clearInterval(interval);
+            // Don't stop screen sharing on unmount to prevent breaking when component unmounts
+            // This allows screen sharing to continue working when the component is temporarily unmounted
+        };
     }, []);
 
     let handleStartStream = async () => {

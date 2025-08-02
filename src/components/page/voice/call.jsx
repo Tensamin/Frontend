@@ -60,6 +60,43 @@ export function VoiceCall() {
 
         checkScreenSharePermission();
 
+        // Set up status notification for remote clients
+        const notifyScreenShareStatus = () => {
+            if (screenStreamRef.current && peerConnections.current.size > 0) {
+                // Trigger renegotiation with peers to update screen share status more frequently
+                peerConnections.current.forEach((pc, userId) => {
+                    try {
+                        // Get existing screen share tracks
+                        const existingTracks = pc.getSenders()
+                            .filter(sender => sender.track && sender.track.kind === 'video')
+                            .map(sender => sender.track);
+
+                        // If we have screen tracks, ensure they're still active
+                        if (existingTracks.length > 0) {
+                            // Force a small parameter change to trigger renegotiation
+                            existingTracks.forEach(track => {
+                                if (track.getConstraints) {
+                                    const constraints = track.getConstraints();
+                                    // This is a harmless change that will trigger renegotiation
+                                    pc.addTransceiver(track.kind, { direction: 'sendrecv' });
+                                }
+                            });
+                        }
+                    } catch (err) {
+                        log(`Failed to update screen status for peer ${userId}: ${err.message}`, "error", "Voice WebSocket:");
+                    }
+                });
+                
+                // Dispatch event to notify UI components
+                if (typeof window !== "undefined") {
+                    window.dispatchEvent(new Event("remote-streams-changed"));
+                }
+            }
+        };
+        
+        // Set up more frequent status update interval
+        const statusInterval = setInterval(notifyScreenShareStatus, 2000);
+        
         // Expose functions to start/stop screen sharing globally
         window.startScreenShare = async () => {
             if (!screenSharePermission) {
@@ -138,10 +175,28 @@ export function VoiceCall() {
                                 log(`Removed ${track.kind} track from peer ${userId}`, "debug", "Voice WebSocket:");
                             }
                         });
+                        
+                        // Force a renegotiation to notify peers that screen sharing has stopped
+                        if (pc.signalingState !== 'closed') {
+                            try {
+                                pc.createOffer().then(offer => {
+                                    pc.setLocalDescription(offer);
+                                }).catch(err => {
+                                    log(`Failed to create renegotiation offer: ${err.message}`, "error", "Voice WebSocket:");
+                                });
+                            } catch (err) {
+                                log(`Failed to trigger renegotiation: ${err.message}`, "error", "Voice WebSocket:");
+                            }
+                        }
                     } catch (err) {
                         log(`Failed to remove screen tracks from peer ${userId}: ${err.message}`, "error", "Voice WebSocket:");
                     }
                 });
+
+                // Notify clients about stream change
+                if (typeof window !== 'undefined') {
+                    window.dispatchEvent(new Event("remote-streams-changed"));
+                }
 
                 screenStreamRef.current = null;
             }
@@ -207,11 +262,23 @@ export function VoiceCall() {
         };
 
         return () => {
+            // Clean up the status interval
+            clearInterval(statusInterval);
+            
+            // Keep the screen share active but make sure to clean up the global methods
+            // We're not stopping the screen share on unmount, as this was causing issues
+            const currentScreenStream = screenStreamRef.current;
+            
             delete window.startScreenShare;
             delete window.stopScreenShare;
             delete window.toggleScreenShare;
             delete window.getAllScreenStreams;
             delete window.getScreenStream;
+            
+            // Dispatch event one more time to notify UI components
+            if (typeof window !== "undefined") {
+                window.dispatchEvent(new Event("remote-streams-changed"));
+            }
         };
     }, [screenSharePermission, screenShareActive]);
 
@@ -793,33 +860,62 @@ export function VoiceCall() {
 export function RemoteStreamVideo({ stream, className }) {
     let canvasRef = useRef(null);
     let videoRef = useRef(null);
+    let animationFrameIdRef = useRef(null);
+    
+    // Store the stream ID to detect changes
+    let streamIdRef = useRef(stream?.id);
 
     useEffect(() => {
         if (!stream || !canvasRef.current) return;
+        
+        // Check if this is a new stream or if stream ID changed
+        const isNewStream = streamIdRef.current !== stream.id;
+        streamIdRef.current = stream.id;
+        
+        // Clean up previous video element if stream changed
+        if (isNewStream && videoRef.current) {
+            cancelAnimationFrame(animationFrameIdRef.current);
+            let tracks = videoRef.current.srcObject?.getTracks();
+            tracks?.forEach(track => track.stop());
+            videoRef.current.srcObject = null;
+        }
 
-        let videoElement = document.createElement("video");
-        videoRef.current = videoElement;
-
-        videoElement.srcObject = stream;
-        videoElement.playsInline = true;
-        videoElement.muted = true;
-        videoElement.play().catch((error) => {
-            log(`Video play failed for stream ${stream.id}: ${error}`, "showError");
-        });
+        // Create new video element for the stream
+        if (isNewStream || !videoRef.current) {
+            let videoElement = document.createElement("video");
+            videoRef.current = videoElement;
+            
+            videoElement.srcObject = stream;
+            videoElement.playsInline = true;
+            videoElement.muted = true;
+            videoElement.play().catch((error) => {
+                log(`Video play failed for stream ${stream.id}: ${error}`, "showError");
+            });
+        }
 
         let canvasElement = canvasRef.current;
         let context = canvasElement.getContext("2d");
-        let animationFrameId;
 
+        // Rendering function for smoother playback
         let renderFrame = () => {
-            if (!videoRef.current) return;
+            // Check if component is still mounted
+            if (!canvasRef.current || !videoRef.current) return;
+            
+            let videoElement = videoRef.current;
+            
             if (videoElement.readyState >= 2) {
+                // Resize canvas if needed
                 if (canvasElement.width !== videoElement.videoWidth) {
                     canvasElement.width = videoElement.videoWidth;
                 }
                 if (canvasElement.height !== videoElement.videoHeight) {
                     canvasElement.height = videoElement.videoHeight;
                 }
+                
+                // Clear canvas before drawing
+                context.clearRect(0, 0, canvasElement.width, canvasElement.height);
+                
+                // Draw video frame
                 context.drawImage(
                     videoElement,
                     0, 0,
@@ -827,17 +923,17 @@ export function RemoteStreamVideo({ stream, className }) {
                     canvasElement.height,
                 );
             }
-            animationFrameId = requestAnimationFrame(renderFrame);
+            
+            animationFrameIdRef.current = requestAnimationFrame(renderFrame);
         };
 
         renderFrame();
 
         return () => {
-            cancelAnimationFrame(animationFrameId);
+            cancelAnimationFrame(animationFrameIdRef.current);
+            // Don't stop tracks here to prevent breaking the stream when component unmounts
+            // Just clean up our references
             if (videoRef.current) {
-                let tracks = videoRef.current.srcObject?.getTracks();
-                tracks?.forEach((track) => track.stop());
-                videoRef.current.srcObject = null;
                 videoRef.current = null;
             }
         };

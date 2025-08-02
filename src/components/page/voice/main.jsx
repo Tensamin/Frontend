@@ -39,9 +39,16 @@ export function Main() {
 
   useEffect(() => {
     let forceUpdate = () => setTick((t) => t + 1);
+    
+    // Listen for remote stream changes to update UI
     window.addEventListener("remote-streams-changed", forceUpdate);
+    
+    // Set up a timer to periodically refresh the UI to ensure streams are displayed
+    const refreshTimer = setInterval(forceUpdate, 2000);
+    
     return () => {
       window.removeEventListener("remote-streams-changed", forceUpdate);
+      clearInterval(refreshTimer);
     };
   }, []);
 
@@ -99,14 +106,22 @@ export function Main() {
             {/* Get streams and create a map */}
             {(() => {
               const streams = window.getAllScreenStreams();
-              const streamMap = new Map(streams.map(({ peerId, stream }) => [peerId || ownUuid, stream]));
+              // Improve stream mapping to ensure we don't lose stream references
+              const streamMap = new Map(streams.map(({ type, peerId, stream }) => {
+                // For local streams, use the ownUuid
+                const userId = type === 'local' ? ownUuid : (peerId || ownUuid);
+                return [userId, stream];
+              }));
 
               // Create combined items array (users and streams)
-              const allItems = usersWithSelf.map(userId => ({
-                id: userId,
-                isStreaming: streamMap.has(userId),
-                stream: streamMap.get(userId)
-              }));
+              const allItems = usersWithSelf.map(userId => {
+                const hasStream = streamMap.has(userId);
+                return {
+                  id: userId,
+                  isStreaming: hasStream,
+                  stream: hasStream ? streamMap.get(userId) : null
+                };
+              });
 
               // Separate focused and non-focused items
               const focusedItem = allItems.find(item => item.id === focused);
