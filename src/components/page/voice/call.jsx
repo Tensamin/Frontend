@@ -88,29 +88,51 @@ export function VoiceCall() {
                     }
                 });
                 
-                // Only handle our own screen sharing tracks - don't force renegotiation for receiving
+                // Only handle our own screen sharing tracks
                 if (screenStreamRef.current) {
-                    peerConnections.current.forEach((pc, userId) => {
+                    peerConnections.current.forEach(async (pc, userId) => {
                         try {
                             // Check connection state before attempting any operations
                             if (pc.connectionState === 'connected' && pc.signalingState === 'stable') {
-                                // Check if we've already added tracks to this peer
-                                const senders = pc.getSenders();
-                                const screenTracks = screenStreamRef.current.getTracks();
+                                const transceivers = pc.getTransceivers();
+                                const videoTransceiver = transceivers.find(t => 
+                                    (t.receiver && t.receiver.track && t.receiver.track.kind === 'video') ||
+                                    (t.mid !== null && t.direction.includes('recv'))
+                                );
                                 
-                                // Find any screen tracks that haven't been added to this peer
-                                screenTracks.forEach(track => {
+                                const videoTrack = screenStreamRef.current.getVideoTracks()[0];
+                                
+                                // Check if we need to replace the track
+                                if (videoTransceiver && videoTrack) {
+                                    const currentTrack = videoTransceiver.sender.track;
+                                    
+                                    // If we don't have a track or it's different, replace it
+                                    if (!currentTrack || currentTrack.id !== videoTrack.id) {
+                                        try {
+                                            await videoTransceiver.sender.replaceTrack(videoTrack);
+                                            videoTransceiver.direction = 'sendrecv';
+                                            log(`Updated video track for peer ${userId}`, "debug", "Voice WebSocket:");
+                                            shouldNotifyUI = true;
+                                        } catch (err) {
+                                            log(`Couldn't update video track for peer ${userId}: ${err.message}`, "debug", "Voice WebSocket:");
+                                        }
+                                    }
+                                }
+                                
+                                // Check audio tracks
+                                const senders = pc.getSenders();
+                                const screenAudioTracks = screenStreamRef.current.getAudioTracks();
+                                
+                                screenAudioTracks.forEach(track => {
                                     const trackExists = senders.some(sender => sender.track && sender.track.id === track.id);
                                     
-                                    // If track isn't found in this peer, add it
                                     if (!trackExists) {
                                         try {
                                             pc.addTrack(track, screenStreamRef.current);
-                                            log(`Late-added screen track ${track.id} to peer ${userId}`, "debug", "Voice WebSocket:");
+                                            log(`Late-added screen audio track ${track.id} to peer ${userId}`, "debug", "Voice WebSocket:");
                                             shouldNotifyUI = true;
                                         } catch (err) {
-                                            // Track might already exist in another form
-                                            log(`Couldn't add screen track to peer ${userId}: ${err.message}`, "debug", "Voice WebSocket:");
+                                            log(`Couldn't add screen audio track to peer ${userId}: ${err.message}`, "debug", "Voice WebSocket:");
                                         }
                                     }
                                 });
@@ -161,9 +183,30 @@ export function VoiceCall() {
                 }));
 
                 // Add screen share tracks to all peer connections with error handling
-                peerConnections.current.forEach((pc, userId) => {
+                peerConnections.current.forEach(async (pc, userId) => {
                     try {
-                        stream.getTracks().forEach(track => {
+                        const videoTrack = stream.getVideoTracks()[0];
+                        const audioTracks = stream.getAudioTracks();
+                        
+                        // Find existing video transceiver and replace the track
+                        const transceivers = pc.getTransceivers();
+                        const videoTransceiver = transceivers.find(t => 
+                            t.receiver && t.receiver.track && t.receiver.track.kind === 'video'
+                        ) || transceivers.find(t => t.mid !== null && t.direction.includes('recv'));
+                        
+                        if (videoTransceiver && videoTrack) {
+                            // Replace the dummy track with our actual screen share
+                            await videoTransceiver.sender.replaceTrack(videoTrack);
+                            videoTransceiver.direction = 'sendrecv';
+                            log(`Replaced video track for peer ${userId} with screen share`, "debug", "Voice WebSocket:");
+                        } else if (videoTrack) {
+                            // Fallback: add track directly if no transceiver found
+                            pc.addTrack(videoTrack, stream);
+                            log(`Added video track to peer ${userId}`, "debug", "Voice WebSocket:");
+                        }
+                        
+                        // Add audio tracks from screen share
+                        audioTracks.forEach(track => {
                             pc.addTrack(track, stream);
                             log(`Added ${track.kind} track to peer ${userId}`, "debug", "Voice WebSocket:");
                         });
@@ -206,28 +249,48 @@ export function VoiceCall() {
                 // Remove tracks from all peer connections
                 peerConnections.current.forEach(async (pc, userId) => {
                     try {
-                        // Get senders for this peer connection
-                        const senders = pc.getSenders();
+                        // Get transceivers for this peer connection
+                        const transceivers = pc.getTransceivers();
                         let trackRemoved = false;
 
-                        // Find and remove screen share tracks
+                        // Find and handle screen share tracks
                         tracksToRemove.forEach(trackInfo => {
-                            const sender = senders.find(s => s.track && s.track.id === trackInfo.id);
-                            if (sender) {
-                                try {
-                                    pc.removeTrack(sender);
-                                    log(`Removed ${trackInfo.kind} track from peer ${userId}`, "debug", "Voice WebSocket:");
-                                    trackRemoved = true;
-                                } catch (err) {
-                                    log(`Error removing track from peer ${userId}: ${err.message}`, "error", "Voice WebSocket:");
+                            if (trackInfo.kind === 'video') {
+                                // Find the video transceiver and replace with null (stop sending)
+                                const videoTransceiver = transceivers.find(t => 
+                                    t.sender.track && t.sender.track.id === trackInfo.id
+                                );
+                                
+                                if (videoTransceiver) {
+                                    try {
+                                        // Replace with null to stop sending video
+                                        videoTransceiver.sender.replaceTrack(null);
+                                        videoTransceiver.direction = 'recvonly'; // Back to receive-only
+                                        log(`Reset video transceiver to recvonly for peer ${userId}`, "debug", "Voice WebSocket:");
+                                        trackRemoved = true;
+                                    } catch (err) {
+                                        log(`Error resetting video transceiver for peer ${userId}: ${err.message}`, "error", "Voice WebSocket:");
+                                    }
+                                }
+                            } else {
+                                // Handle audio tracks normally
+                                const senders = pc.getSenders();
+                                const sender = senders.find(s => s.track && s.track.id === trackInfo.id);
+                                if (sender) {
+                                    try {
+                                        pc.removeTrack(sender);
+                                        log(`Removed ${trackInfo.kind} track from peer ${userId}`, "debug", "Voice WebSocket:");
+                                        trackRemoved = true;
+                                    } catch (err) {
+                                        log(`Error removing ${trackInfo.kind} track from peer ${userId}: ${err.message}`, "error", "Voice WebSocket:");
+                                    }
                                 }
                             }
                         });
                         
                         // Simple renegotiation - let the normal negotiation process handle it
-                        // Don't force complex renegotiation patterns that cause SDP order issues
                         if (trackRemoved && pc.signalingState === 'stable' && pc.connectionState === 'connected') {
-                            log(`Track removal completed for peer ${userId}, letting normal negotiation handle updates`, "debug", "Voice WebSocket:");
+                            log(`Track changes completed for peer ${userId}, letting normal negotiation handle updates`, "debug", "Voice WebSocket:");
                         }
                     } catch (err) {
                         log(`Failed to process track removal for peer ${userId}: ${err.message}`, "error", "Voice WebSocket:");
@@ -426,18 +489,30 @@ export function VoiceCall() {
                 "Voice WebSocket:",
             );
 
+            // Always add audio tracks if available
             if (localStream.current) {
                 log(
-                    `Adding local tracks to peer connection for ${remoteUserId}.`,
+                    `Adding local audio tracks to peer connection for ${remoteUserId}.`,
                     "debug",
                     "Voice WebSocket:",
                 );
-                localStream.current.getTracks().forEach((track) => {
+                localStream.current.getAudioTracks().forEach((track) => {
                     pc.addTrack(track, localStream.current);
                 });
             }
 
-            // Add screen share tracks if available with error handling
+            // Always add a video transceiver to enable receiving screen shares
+            // This ensures we can receive video tracks even if we're not sending any initially
+            const videoTransceiver = pc.addTransceiver('video', {
+                direction: 'recvonly'  // Start as receive-only
+            });
+            log(
+                `Added video transceiver for ${remoteUserId} (direction: recvonly)`,
+                "debug",
+                "Voice WebSocket:",
+            );
+
+            // Add screen share tracks if available - this will change the transceiver to sendrecv
             if (screenStreamRef.current) {
                 log(
                     `Adding screen share tracks to peer connection for ${remoteUserId}.`,
@@ -445,7 +520,16 @@ export function VoiceCall() {
                     "Voice WebSocket:",
                 );
                 try {
-                    screenStreamRef.current.getTracks().forEach((track) => {
+                    // Replace the transceiver with our actual screen share tracks
+                    const videoTrack = screenStreamRef.current.getVideoTracks()[0];
+                    if (videoTrack) {
+                        await videoTransceiver.sender.replaceTrack(videoTrack);
+                        videoTransceiver.direction = 'sendrecv';
+                        log(`Replaced dummy video track with screen share for ${remoteUserId}`, "debug", "Voice WebSocket:");
+                    }
+                    
+                    // Add any audio tracks from screen share
+                    screenStreamRef.current.getAudioTracks().forEach((track) => {
                         pc.addTrack(track, screenStreamRef.current);
                     });
                 } catch (err) {
@@ -457,9 +541,9 @@ export function VoiceCall() {
                 }
             }
 
-            if (!localStream.current && !screenStreamRef.current) {
+            if (!localStream.current) {
                 log(
-                    `NO LOCAL OR SCREEN STREAM AVAILABLE TO ADD FOR ${remoteUserId}. This should not happen if identification logic is correct.`,
+                    `NO LOCAL AUDIO STREAM AVAILABLE TO ADD FOR ${remoteUserId}. This might be expected if mic access was denied.`,
                     "warning",
                     "Voice WebSocket:",
                 );
