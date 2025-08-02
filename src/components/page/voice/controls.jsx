@@ -1,6 +1,8 @@
 // Package Imports
 import React, { useState, useEffect, useMemo, memo, useRef } from "react";
 import * as Icon from "lucide-react";
+import { Bouncy } from "ldrs/react";
+import "ldrs/react/Bouncy.css";
 
 // Lib Imports
 import { log } from "@/lib/utils";
@@ -37,64 +39,7 @@ import {
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import { MiniMiniUserModal } from "@/components/page/root/user-modal/main";
-import { Bouncy } from "ldrs/react";
-import "ldrs/react/Bouncy.css";
-
-export function RemoteStreamVideo({ stream, className }) {
-    let canvasRef = useRef(null);
-    let videoRef = useRef(null);
-
-    useEffect(() => {
-        if (!stream || !canvasRef.current) return;
-
-        let videoElement = document.createElement("video");
-        videoRef.current = videoElement;
-
-        videoElement.srcObject = stream;
-        videoElement.playsInline = true;
-        videoElement.muted = true;
-        videoElement.play().catch((error) => {
-            log(`Video play failed for stream ${stream.id}: ${error}`, "showError");
-        });
-
-        let canvasElement = canvasRef.current;
-        let context = canvasElement.getContext("2d");
-        let animationFrameId;
-
-        let renderFrame = () => {
-            if (!videoRef.current) return;
-            if (videoElement.readyState >= 2) {
-                if (canvasElement.width !== videoElement.videoWidth) {
-                    canvasElement.width = videoElement.videoWidth;
-                }
-                if (canvasElement.height !== videoElement.videoHeight) {
-                    canvasElement.height = videoElement.videoHeight;
-                }
-                context.drawImage(
-                    videoElement,
-                    0, 0,
-                    canvasElement.width,
-                    canvasElement.height,
-                );
-            }
-            animationFrameId = requestAnimationFrame(renderFrame);
-        };
-
-        renderFrame();
-
-        return () => {
-            cancelAnimationFrame(animationFrameId);
-            if (videoRef.current) {
-                let tracks = videoRef.current.srcObject?.getTracks();
-                tracks?.forEach((track) => track.stop());
-                videoRef.current.srcObject = null;
-                videoRef.current = null;
-            }
-        };
-    }, [stream]);
-
-    return <canvas ref={canvasRef} className={className} />;
-}
+import { RemoteStreamVideo } from "@/components/page/voice/call";
 
 // Main
 export function VoiceControls() {

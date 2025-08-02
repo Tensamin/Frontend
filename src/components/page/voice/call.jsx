@@ -5,7 +5,6 @@ import useWebSocket, { ReadyState } from "react-use-websocket";
 // Lib Imports
 import { endpoint } from "@/lib/endpoints";
 import { log, sha256 } from "@/lib/utils";
-import ls from "@/lib/localStorageManager";
 
 // Context Imports
 import { useCryptoContext } from "@/components/context/crypto";
@@ -118,13 +117,13 @@ export function VoiceCall() {
                     track.stop();
                     log(`Stopped ${track.kind} track`, "debug", "Voice WebSocket:");
                 });
-                
+
                 // Remove tracks from all peer connections
                 peerConnections.current.forEach((pc, userId) => {
                     try {
                         // Get senders for this peer connection
                         const senders = pc.getSenders();
-                        
+
                         // Find and remove screen share tracks
                         screenStreamRef.current.getTracks().forEach(track => {
                             const sender = senders.find(s => s.track === track);
@@ -137,12 +136,12 @@ export function VoiceCall() {
                         log(`Failed to remove screen tracks from peer ${userId}: ${err.message}`, "error", "Voice WebSocket:");
                     }
                 });
-                
+
                 screenStreamRef.current = null;
             }
-            
+
             setScreenShareActive(false);
-            
+
             // Update currentCallStream in context
             setCurrentCallStream(prev => ({
                 ...prev,
@@ -167,7 +166,7 @@ export function VoiceCall() {
         // Expose function to get all screen streams (local and remote)
         window.getAllScreenStreams = () => {
             let streams = [];
-            
+
             // Add local screen stream if active
             if (screenStreamRef.current) {
                 streams.push({
@@ -175,7 +174,7 @@ export function VoiceCall() {
                     stream: screenStreamRef.current
                 });
             }
-            
+
             // Add all remote screen streams
             remoteScreenRefs.current.forEach((stream, peerId) => {
                 if (stream.getVideoTracks().length > 0) {
@@ -186,7 +185,7 @@ export function VoiceCall() {
                     });
                 }
             });
-            
+
             return streams;
         };
 
@@ -196,7 +195,7 @@ export function VoiceCall() {
                 // Return local screen stream
                 return screenStreamRef.current;
             }
-            
+
             // Return remote screen stream for specific peer
             return remoteScreenRefs.current.get(peerId);
         };
@@ -218,10 +217,6 @@ export function VoiceCall() {
             onClose: () => {
                 log("Voice disconnected", "debug", "Voice WebSocket:");
                 setIdentified(false);
-                // Clean up screen share on disconnect
-                if (screenShareActive) {
-                    window.stopScreenShare();
-                }
             },
             onError: (event) => log(event.type, "error", "Voice WebSocket:"),
             shouldReconnect: () => false,
@@ -301,7 +296,7 @@ export function VoiceCall() {
                     );
                 }
             }
-            
+
             if (!localStream.current && !screenStreamRef.current) {
                 log(
                     `NO LOCAL OR SCREEN STREAM AVAILABLE TO ADD FOR ${remoteUserId}. This should not happen if identification logic is correct.`,
@@ -354,14 +349,14 @@ export function VoiceCall() {
                         remoteStream = new MediaStream();
                         remoteScreenRefs.current.set(remoteUserId, remoteStream);
                     }
-                    
+
                     log(
                         `Adding remote video track (screen share) from ${remoteUserId}.`,
                         "debug",
                         "Voice WebSocket:",
                     );
                     remoteStream.addTrack(event.track);
-                } 
+                }
                 // Handle audio tracks
                 else {
                     let remoteStream = remoteAudioRefs.current.get(remoteUserId);
@@ -374,7 +369,7 @@ export function VoiceCall() {
                         remoteStream = new MediaStream();
                         remoteAudioRefs.current.set(remoteUserId, remoteStream);
                     }
-                    
+
                     log(
                         `Adding remote audio track from ${remoteUserId}.`,
                         "debug",
@@ -382,7 +377,7 @@ export function VoiceCall() {
                     );
                     remoteStream.addTrack(event.track);
                 }
-                
+
                 setConnectedPeers((prev) =>
                     Array.from(new Set([...prev, remoteUserId])),
                 );
@@ -786,5 +781,117 @@ export function VoiceCall() {
                 );
             })}
         </div>
+    );
+}
+
+export function RemoteStreamVideo({ stream, className }) {
+    let canvasRef = useRef(null);
+    let videoRef = useRef(null);
+
+    useEffect(() => {
+        if (!stream || !canvasRef.current) return;
+
+        let videoElement = document.createElement("video");
+        videoRef.current = videoElement;
+
+        videoElement.srcObject = stream;
+        videoElement.playsInline = true;
+        videoElement.muted = true;
+        videoElement.play().catch((error) => {
+            log(`Video play failed for stream ${stream.id}: ${error}`, "showError");
+        });
+
+        let canvasElement = canvasRef.current;
+        let context = canvasElement.getContext("2d");
+        let animationFrameId;
+
+        let renderFrame = () => {
+            if (!videoRef.current) return;
+            if (videoElement.readyState >= 2) {
+                if (canvasElement.width !== videoElement.videoWidth) {
+                    canvasElement.width = videoElement.videoWidth;
+                }
+                if (canvasElement.height !== videoElement.videoHeight) {
+                    canvasElement.height = videoElement.videoHeight;
+                }
+                context.drawImage(
+                    videoElement,
+                    0, 0,
+                    canvasElement.width,
+                    canvasElement.height,
+                );
+            }
+            animationFrameId = requestAnimationFrame(renderFrame);
+        };
+
+        renderFrame();
+
+        return () => {
+            cancelAnimationFrame(animationFrameId);
+            if (videoRef.current) {
+                let tracks = videoRef.current.srcObject?.getTracks();
+                tracks?.forEach((track) => track.stop());
+                videoRef.current.srcObject = null;
+                videoRef.current = null;
+            }
+        };
+    }, [stream]);
+
+    return <canvas ref={canvasRef} className={className} />;
+}
+
+export function InviteItem({ id, onShouldClose }) {
+    let [profile, setProfile] = useState(null);
+    let { get, currentCall } = useUsersContext();
+    let { encrypt_base64_using_pubkey } = useEncryptionContext();
+    let { send } = useWebSocketContext();
+
+    useEffect(() => {
+        get(id).then(setProfile);
+    }, [id, get]);
+
+    let handleInvite = async () => {
+        if (!profile || !profile.public_key) {
+            log("User profile or public key not loaded yet.", "showError");
+            return;
+        }
+        try {
+            let data = await send(
+                "call_invite",
+                {
+                    message: `Invited ${id} to the call ${currentCall.id}`,
+                    log_level: 0,
+                },
+                {
+                    receiver_id: id,
+                    call_id: currentCall.id,
+                    call_secret: await encrypt_base64_using_pubkey(
+                        btoa(currentCall.secret),
+                        profile.public_key,
+                    ),
+                    call_secret_sha: await sha256(currentCall.secret),
+                },
+            );
+
+            if (data.type !== "error") {
+                log("Sent Invite", "success");
+            } else {
+                log(data.log.message, "showError");
+            }
+        } catch (error) {
+            log(`Failed to send invite: ${error}`, "showError");
+        } finally {
+            onShouldClose(false);
+        }
+    };
+
+    if (!profile) {
+        return <CommandItem>Loading...</CommandItem>;
+    }
+
+    return (
+        <CommandItem onSelect={handleInvite}>
+            <p>{profile.display}</p>
+        </CommandItem>
     );
 }
