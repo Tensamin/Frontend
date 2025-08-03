@@ -13,9 +13,9 @@ import useWebSocket, { ReadyState } from "react-use-websocket";
 import { v7 } from "uuid"
 
 // Lib Imports
-import { log as logFunction } from "@/lib/utils";
+import { log as logFunction, sha256 } from "@/lib/utils";
 import { endpoint } from "@/lib/endpoints";
-import ls, { set } from "@/lib/localStorageManager";
+import ls from "@/lib/localStorageManager";
 
 // Context Imports
 import { useCryptoContext } from "@/components/context/crypto";
@@ -513,6 +513,7 @@ export let CallProvider = ({ children }) => {
         }
     }, [sendMessage, readyState]);
 
+    // Create P2P Connection
     let createP2PConnection = useCallback(async (id, isInitiator = false, isScreenShare = false) => {
         // Handle Existing Connections
         if (micPeers.current.has(id)) {
@@ -762,10 +763,10 @@ export let CallProvider = ({ children }) => {
     useEffect(() => {
         if (micStreamRef.current) {
             micStreamRef.current.getAudioTracks().forEach((track) => {
-                track.enabled = !currentCall.mute;
+                track.enabled = !mute;
             });
         }
-    }, [currentCall.mute]);
+    }, [mute]);
 
     // Unmount Cleanup
     useEffect(() => {
