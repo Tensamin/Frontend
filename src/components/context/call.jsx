@@ -90,13 +90,15 @@ export let CallProvider = ({ children }) => {
         });
     }, []);
 
+    // Toggle Deaf
     let toggleDeaf = useCallback(() => {
         setDeaf((prevDeaf) => {
             ls.set("call_deaf", !prevDeaf);
             return !prevDeaf;
         });
     }, []);
-    
+
+    // Start Screen Stream
     let startScreenStream = useCallback(async (resolution = "1280x720", framerate = 30, audio = false) => {
         try {
             let stream = await navigator.mediaDevices.getDisplayMedia({
@@ -154,6 +156,7 @@ export let CallProvider = ({ children }) => {
         }
     }, []);
 
+    // Stop Screen Stream
     let stopScreenStream = useCallback(() => {
         if (!screenStreamRef.current) {
             return;
@@ -217,6 +220,7 @@ export let CallProvider = ({ children }) => {
         setStream(false);
     }, [])
 
+    // Get Screen Stream
     let getScreenStream = useCallback((id) => {
         if (!id) {
             return screenStreamRef.current;
@@ -224,6 +228,7 @@ export let CallProvider = ({ children }) => {
         return screenRefs.current.get(id);
     }, []);
 
+    // Get All Screen Streams
     let getAllScreenStreams = useCallback(() => {
         let streams = [];
 
@@ -280,492 +285,487 @@ export let CallProvider = ({ children }) => {
         return streams;
     }, [])
 
-    // Call Handling
-    useEffect(() => {
-        if (createCall) {
-            // Handle WebSocket Messages
-            let handleWebSocketMessage = useCallback(async (event) => {
-                let message = JSON.parse(event.data);
-                logFunction(message, "debug", "Call WebSocket (Received):")
+    // Handle WebSocket Messages
+    let handleWebSocketMessage = useCallback(async (event) => {
+        let message = JSON.parse(event.data);
+        logFunction(message, "debug", "Call WebSocket (Received):")
 
-                switch (message.type) {
-                    case "client_connected":
-                        createP2PConnection(message.data.user_id, true);
-                        break;
+        switch (message.type) {
+            case "client_connected":
+                createP2PConnection(message.data.user_id, true);
+                break;
 
-                    case "client_closed":
-                        if (screenRefs.current.has(message.data.user_id)) {
-                            let screenPc = screenRefs.current.get(message.data.user_id);
-                            screenPc.close();
-                            screenRefs.current.delete(message.data.user_id);
-                        }
-
-                        if (micRefs.current.has(message.data.user_id)) {
-                            let micPc = micRefs.current.get(message.data.user_id);
-                            micPc.close();
-                            micRefs.current.delete(message.data.user_id);
-                        }
-
-                        setConnectedUsers((prev) => prev.filter(userId => userId !== message.data.user_id));
-                        break;
-
-                    case "webrtc_sdp":
-                        let sdp_sender = message.data.sender_id;
-                        let sdp_isScreenShare = message.data.screen_share;
-                        let sdp_payload;
-
-                        try {
-                            sdp_payload = atob(await decrypt_base64_using_aes(message.data.payload, callSecret));
-                        } catch (err) {
-                            log(
-                                `${sdp_sender}: ${err.message}`,
-                                "error",
-                                "Voice WebSocket:",
-                            );
-                            return;
-                        }
-
-                        let sdp_pc;
-                        if (sdp_isScreenShare) {
-                            sdp_pc = screenRefs.current.get(sdp_sender);
-                        } else {
-                            sdp_pc = micRefs.current.get(sdp_sender);
-                        }
-
-                        if (!sdp_pc) {
-                            sdp_pc = await createP2PConnection(sdp_sender, false, sdp_isScreenShare);
-                        }
-
-                        try {
-                            let sdp_obj = new RTCSessionDescription(
-                                JSON.parse(sdp_payload),
-                            );
-                            await sdp_pc.setRemoteDescription(sdp_obj);
-                            if (sdp_obj.type === "offer") {
-                                let answer = await sdp_pc.createAnswer({
-                                    offerToReceiveAudio: !sdp_isScreenShare,
-                                    offerToReceiveVideo: sdp_isScreenShare,
-                                });
-
-                                await sdp_pc.setLocalDescription(answer);
-
-                                send({
-                                    type: "webrtc_sdp",
-                                    data: {
-                                        payload: await encrypt_base64_using_aes(
-                                            btoa(JSON.stringify(answer)),
-                                            callSecret,
-                                        ),
-                                        screen_share: sdp_isScreenShare,
-                                        receiver_id: sdp_sender,
-                                    },
-                                }).then(() => {
-                                    log(
-                                        `Answer sent to ${sdp_sender}`,
-                                        "success",
-                                    );
-                                });
-                            }
-                        } catch (error) {
-                            log(
-                                `SDP Error (${sdp_sender}): ${error}`,
-                                "error",
-                                "Voice WebSocket:",
-                            );
-                        }
-
-                        break;
-
-                    case "webrtc_ice":
-                        let ice_sender = message.data.sender_id;
-                        let ice_isScreenShare = message.data.screen_share;
-                        let ice_payload;
-
-                        try {
-                            ice_payload = atob(await decrypt_base64_using_aes(message.data.payload, callSecret));
-                        } catch (err) {
-                            logFunction(`${ice_sender}: ${err.message}`, "error", "Voice WebSocket:");
-                            return;
-                        }
-
-                        let ice_pc;
-                        if (ice_isScreenShare) {
-                            ice_pc = screenRefs.current.get(ice_sender);
-                        } else {
-                            ice_pc = micRefs.current.get(ice_sender);
-                        }
-
-                        if (ice_pc && ice_payload) {
-                            try {
-                                await ice_pc.addIceCandidate(
-                                    new RTCIceCandidate(JSON.parse(ice_payload)),
-                                );
-                            } catch (err) {
-                                log(err.message, "error", "Voice WebSocket:");
-                            }
-                        } else {
-                            log(
-                                `No peer connection found for ${ice_sender} or ICE payload is empty.`,
-                                "warning",
-                                "Voice WebSocket:",
-                            );
-                        }
-
-                        break;
-
-                    case "start_stream":
-                        setStreamingUsers((prev) => {
-                            if (!prev.includes(message.data.user_id)) {
-                                return [...prev, message.data.user_id];
-                            }
-                            return prev;
-                        });
-                        break;
-
-                    case "end_stream":
-                        setStreamingUsers((prev) => prev.filter(userId => userId !== message.data.user_id));
-                        break;
-
-                    default:
-                        break;
+            case "client_closed":
+                if (screenRefs.current.has(message.data.user_id)) {
+                    let screenPc = screenRefs.current.get(message.data.user_id);
+                    screenPc.close();
+                    screenRefs.current.delete(message.data.user_id);
                 }
 
-                if (message.id && pendingRequests.current.has(message.id)) {
-                    let { resolve, reject, timeoutId } = pendingRequests.current.get(message.id);
-                    clearTimeout(timeoutId);
-                    pendingRequests.current.delete(message.id);
-
-                    if (message.type !== 'error' || !identified) {
-                        resolve(message);
-                    } else {
-                        reject(new Error(`Received unknown response type '${message.type}' for request ID '${message.id}'.`));
-                    }
-                } else logFunction(message.log.message, "info");
-            }, []);
-
-            // Init WebSocket
-            let { sendMessage, readyState } = useWebSocket(
-                endpoint.client_wss,
-                {
-                    onOpen: () => logFunction("Call connected", "info"),
-                    onClose: () => {
-                        logFunction("Call disconnected", "info");
-                        pendingRequests.current.forEach(({ reject, timeoutId }) => {
-                            clearTimeout(timeoutId);
-                            reject(
-                                new Error('Call WebSocket connection closed before response was received.')
-                            );
-                        });
-                        pendingRequests.current.clear();
-
-                        setConnected(false);
-                        setIdentified(false);
-                        setMicPeers([]);
-                        setScreenPeers([]);
-                        micRefs.current.clear();
-                        screenRefs.current.clear();
-                    },
-                    onMessage: handleWebSocketMessage,
-                    shouldReconnect: () => true,
-                    share: true,
-                    reconnectAttempts: 5,
-                    reconnectInterval: 3000,
-                }
-            );
-
-            // Send Function
-            let send = useCallback(async (requestType, log, data = {}) => {
-                if (!forceLoad && readyState !== ReadyState.CLOSED && readyState !== ReadyState.CLOSING) {
-                    return new Promise((resolve, reject) => {
-                        let id = v7();
-
-                        let messageToSend = {
-                            id,
-                            type: requestType,
-                            log,
-                            data,
-                        };
-
-                        if (messageToSend.type !== "ping") {
-                            logFunction(messageToSend, "debug", "Call WebSocket (Sent):")
-                        }
-
-                        let timeoutId = setTimeout(() => {
-                            pendingRequests.current.delete(id);
-                            let timeoutError = new Error(`Call WebSocket request timed out for ID: ${id} (Type: ${requestType}) after ${responseTimeout}ms.`);
-                            reject(timeoutError);
-                        }, responseTimeout);
-
-                        pendingRequests.current.set(id, { resolve, reject, timeoutId });
-
-                        try {
-                            sendMessage(JSON.stringify(messageToSend));
-                        } catch (e) {
-                            clearTimeout(timeoutId);
-                            pendingRequests.current.delete(id);
-                            let sendError = new Error(`Failed to send Call WebSocket message: ${e.message}`);
-                            logFunction(sendError, 'error');
-                            reject(sendError);
-                        }
-                    });
-                }
-            }, [sendMessage, readyState, forceLoad]);
-
-            let createP2PConnection = useCallback(async (id, isInitiator = false, isScreenShare = false) => {
-                // Handle Existing Connections
-                if (micPeers.current.has(id)) {
-                    return micPeers.current.get(id);
+                if (micRefs.current.has(message.data.user_id)) {
+                    let micPc = micRefs.current.get(message.data.user_id);
+                    micPc.close();
+                    micRefs.current.delete(message.data.user_id);
                 }
 
-                if (screenPeers.current.has(id)) {
-                    return screenPeers.current.get(id);
+                setConnectedUsers((prev) => prev.filter(userId => userId !== message.data.user_id));
+                break;
+
+            case "webrtc_sdp":
+                let sdp_sender = message.data.sender_id;
+                let sdp_isScreenShare = message.data.screen_share;
+                let sdp_payload;
+
+                try {
+                    sdp_payload = atob(await decrypt_base64_using_aes(message.data.payload, callSecret));
+                } catch (err) {
+                    log(
+                        `${sdp_sender}: ${err.message}`,
+                        "error",
+                        "Voice WebSocket:",
+                    );
+                    return;
                 }
 
-                // Create New Peer Connection
-                let pc = new RTCPeerConnection(webrtc_servers);
-
-                if (isScreenShare) {
-                    screenPeers.current.set(id, pc);
+                let sdp_pc;
+                if (sdp_isScreenShare) {
+                    sdp_pc = screenRefs.current.get(sdp_sender);
                 } else {
-                    micPeers.current.set(id, pc);
+                    sdp_pc = micRefs.current.get(sdp_sender);
                 }
 
-                // Add Mic Stream
-                if (micStreamRef.current && !isScreenShare) {
-                    micStreamRef.current.getTracks().forEach(track => {
-                        pc.addTrack(track, micStreamRef.current);
-                    });
+                if (!sdp_pc) {
+                    sdp_pc = await createP2PConnection(sdp_sender, false, sdp_isScreenShare);
                 }
 
-                // Add Screen Stream
-                let videoTransceiver = pc.addTransceiver('video', {
-                    direction: 'recvonly'
+                try {
+                    let sdp_obj = new RTCSessionDescription(
+                        JSON.parse(sdp_payload),
+                    );
+                    await sdp_pc.setRemoteDescription(sdp_obj);
+                    if (sdp_obj.type === "offer") {
+                        let answer = await sdp_pc.createAnswer({
+                            offerToReceiveAudio: !sdp_isScreenShare,
+                            offerToReceiveVideo: sdp_isScreenShare,
+                        });
+
+                        await sdp_pc.setLocalDescription(answer);
+
+                        send({
+                            type: "webrtc_sdp",
+                            data: {
+                                payload: await encrypt_base64_using_aes(
+                                    btoa(JSON.stringify(answer)),
+                                    callSecret,
+                                ),
+                                screen_share: sdp_isScreenShare,
+                                receiver_id: sdp_sender,
+                            },
+                        }).then(() => {
+                            log(
+                                `Answer sent to ${sdp_sender}`,
+                                "success",
+                            );
+                        });
+                    }
+                } catch (error) {
+                    log(
+                        `SDP Error (${sdp_sender}): ${error}`,
+                        "error",
+                        "Voice WebSocket:",
+                    );
+                }
+
+                break;
+
+            case "webrtc_ice":
+                let ice_sender = message.data.sender_id;
+                let ice_isScreenShare = message.data.screen_share;
+                let ice_payload;
+
+                try {
+                    ice_payload = atob(await decrypt_base64_using_aes(message.data.payload, callSecret));
+                } catch (err) {
+                    logFunction(`${ice_sender}: ${err.message}`, "error", "Voice WebSocket:");
+                    return;
+                }
+
+                let ice_pc;
+                if (ice_isScreenShare) {
+                    ice_pc = screenRefs.current.get(ice_sender);
+                } else {
+                    ice_pc = micRefs.current.get(ice_sender);
+                }
+
+                if (ice_pc && ice_payload) {
+                    try {
+                        await ice_pc.addIceCandidate(
+                            new RTCIceCandidate(JSON.parse(ice_payload)),
+                        );
+                    } catch (err) {
+                        log(err.message, "error", "Voice WebSocket:");
+                    }
+                } else {
+                    log(
+                        `No peer connection found for ${ice_sender} or ICE payload is empty.`,
+                        "warning",
+                        "Voice WebSocket:",
+                    );
+                }
+
+                break;
+
+            case "start_stream":
+                setStreamingUsers((prev) => {
+                    if (!prev.includes(message.data.user_id)) {
+                        return [...prev, message.data.user_id];
+                    }
+                    return prev;
                 });
+                break;
 
-                if (screenStreamRef.current && isScreenShare) {
-                    let videoTrack = screenStreamRef.current.getVideoTracks()[0];
-                    if (videoTrack) {
-                        await videoTransceiver.sender.replaceTrack(videoTrack);
-                        videoTransceiver.direction = 'sendrecv';
-                    }
+            case "end_stream":
+                setStreamingUsers((prev) => prev.filter(userId => userId !== message.data.user_id));
+                break;
 
-                    screenStreamRef.current.getTracks().forEach(track => {
-                        pc.addTrack(track, screenStreamRef.current);
-                    });
-                }
+            default:
+                break;
+        }
 
-                // ICE Candidates
-                pc.onicecandidate = async (event) => {
-                    if (event.candidate) {
-                        await send("webrtc_ice", {
-                            message: "Sending ICE Candidate",
-                            log_level: 0
-                        }, {
-                            payload: await encrypt_base64_using_aes(
-                                btoa(JSON.stringify(event.candidate)),
-                                callSecret,
-                            ),
-                            screen_share: isScreenShare,
-                            receiver_id: id,
-                        })
-                    }
+        if (message.id && pendingRequests.current.has(message.id)) {
+            let { resolve, reject, timeoutId } = pendingRequests.current.get(message.id);
+            clearTimeout(timeoutId);
+            pendingRequests.current.delete(message.id);
+
+            if (message.type !== 'error' || !identified) {
+                resolve(message);
+            } else {
+                reject(new Error(`Received unknown response type '${message.type}' for request ID '${message.id}'.`));
+            }
+        } else logFunction(message.log.message, "info");
+    }, []);
+
+    // Init WebSocket
+    let { sendMessage, readyState } = useWebSocket(
+        endpoint.client_wss,
+        {
+            onOpen: () => logFunction("Call connected", "info"),
+            onClose: () => {
+                logFunction("Call disconnected", "info");
+                pendingRequests.current.forEach(({ reject, timeoutId }) => {
+                    clearTimeout(timeoutId);
+                    reject(
+                        new Error('Call WebSocket connection closed before response was received.')
+                    );
+                });
+                pendingRequests.current.clear();
+
+                setConnected(false);
+                setIdentified(false);
+                setMicPeers([]);
+                setScreenPeers([]);
+                micRefs.current.clear();
+                screenRefs.current.clear();
+            },
+            onMessage: handleWebSocketMessage,
+            shouldReconnect: () => true,
+            share: true,
+            reconnectAttempts: 5,
+            reconnectInterval: 3000,
+        }
+    );
+
+    // Send Function
+    let send = useCallback(async (requestType, log, data = {}) => {
+        if (readyState !== ReadyState.CLOSED && readyState !== ReadyState.CLOSING) {
+            return new Promise((resolve, reject) => {
+                let id = v7();
+
+                let messageToSend = {
+                    id,
+                    type: requestType,
+                    log,
+                    data,
                 };
 
-                // Track Events
-                pc.ontrack = (event) => {
-                    event.track.onended = async () => {
-                        if (isScreenShare) {
-                            let stream = screenRefs.current.get(id);
-                            if (stream) {
-                                stream.removeTrack(event.track);
-                                await send("end_stream", {
-                                    message: "Sending End Stream Status",
-                                    log_level: 0
-                                }, {
-                                    user_id: id,
-                                })
-                            };
-                        } else {
-                            let stream = micRefs.current.get(id);
-                            if (stream) {
-                                stream.removeTrack(event.track);
-                            };
-                        }
-                    }
+                if (messageToSend.type !== "ping") {
+                    logFunction(messageToSend, "debug", "Call WebSocket (Sent):")
+                }
 
-                    // Handle Tracks
-                    if (isScreenShare) {
-                        let stream = screenRefs.current.get(id);
-                        if (!stream) {
-                            stream = new MediaStream();
-                            screenRefs.current.set(id, stream);
-                        }
+                let timeoutId = setTimeout(() => {
+                    pendingRequests.current.delete(id);
+                    let timeoutError = new Error(`Call WebSocket request timed out for ID: ${id} (Type: ${requestType}) after ${responseTimeout}ms.`);
+                    reject(timeoutError);
+                }, responseTimeout);
 
-                        event.track.enabled = true;
-                        stream.addTrack(event.track);
-                        send("start_stream", {
-                            message: "Sending Start Stream Status",
+                pendingRequests.current.set(id, { resolve, reject, timeoutId });
+
+                try {
+                    sendMessage(JSON.stringify(messageToSend));
+                } catch (e) {
+                    clearTimeout(timeoutId);
+                    pendingRequests.current.delete(id);
+                    let sendError = new Error(`Failed to send Call WebSocket message: ${e.message}`);
+                    logFunction(sendError, 'error');
+                    reject(sendError);
+                }
+            });
+        }
+    }, [sendMessage, readyState]);
+
+    let createP2PConnection = useCallback(async (id, isInitiator = false, isScreenShare = false) => {
+        // Handle Existing Connections
+        if (micPeers.current.has(id)) {
+            return micPeers.current.get(id);
+        }
+
+        if (screenPeers.current.has(id)) {
+            return screenPeers.current.get(id);
+        }
+
+        // Create New Peer Connection
+        let pc = new RTCPeerConnection(webrtc_servers);
+
+        if (isScreenShare) {
+            screenPeers.current.set(id, pc);
+        } else {
+            micPeers.current.set(id, pc);
+        }
+
+        // Add Mic Stream
+        if (micStreamRef.current && !isScreenShare) {
+            micStreamRef.current.getTracks().forEach(track => {
+                pc.addTrack(track, micStreamRef.current);
+            });
+        }
+
+        // Add Screen Stream
+        let videoTransceiver = pc.addTransceiver('video', {
+            direction: 'recvonly'
+        });
+
+        if (screenStreamRef.current && isScreenShare) {
+            let videoTrack = screenStreamRef.current.getVideoTracks()[0];
+            if (videoTrack) {
+                await videoTransceiver.sender.replaceTrack(videoTrack);
+                videoTransceiver.direction = 'sendrecv';
+            }
+
+            screenStreamRef.current.getTracks().forEach(track => {
+                pc.addTrack(track, screenStreamRef.current);
+            });
+        }
+
+        // ICE Candidates
+        pc.onicecandidate = async (event) => {
+            if (event.candidate) {
+                await send("webrtc_ice", {
+                    message: "Sending ICE Candidate",
+                    log_level: 0
+                }, {
+                    payload: await encrypt_base64_using_aes(
+                        btoa(JSON.stringify(event.candidate)),
+                        callSecret,
+                    ),
+                    screen_share: isScreenShare,
+                    receiver_id: id,
+                })
+            }
+        };
+
+        // Track Events
+        pc.ontrack = (event) => {
+            event.track.onended = async () => {
+                if (isScreenShare) {
+                    let stream = screenRefs.current.get(id);
+                    if (stream) {
+                        stream.removeTrack(event.track);
+                        await send("end_stream", {
+                            message: "Sending End Stream Status",
                             log_level: 0
                         }, {
                             user_id: id,
-                        });
-                    } else {
-                        let stream = micRefs.current.get(id);
-                        if (!stream) {
-                            stream = new MediaStream();
-                            micRefs.current.set(id, stream);
-                        }
-
-                        event.track.enabled = true;
-                        stream.addTrack(event.track);
-                    }
-
-                    // Update Peers
-                    if (isScreenShare) {
-                        setScreenPeers((prev) =>
-                            Array.from(new Set([...prev, id])),
-                        );
-                    } else {
-                        setMicPeers((prev) =>
-                            Array.from(new Set([...prev, id])),
-                        );
-                    }
-                };
-
-                if (isInitiator) {
-                    pc.onnegotiationneeded = async () => {
-                        if (pc.signalingState !== "stable") {
-                            return;
-                        }
-
-                        let offer = await pc.createOffer({
-                            offerToReceiveAudio: !isScreenShare,
-                            offerToReceiveVideo: isScreenShare,
-                        });
-
-                        if (pc.signalingState !== "stable") {
-                            return;
-                        }
-
-                        await pc.setLocalDescription(offer);
-
-                        await send("webrtc_sdp", {
-                            message: "Sending SDP Offer",
-                            log_level: 0
-                        }, {
-                            payload: await encrypt_base64_using_aes(
-                                btoa(JSON.stringify(offer)),
-                                callSecret,
-                            ),
-                            screen_share: isScreenShare,
-                            receiver_id: id,
-                        });
-                    }
-                }
-
-                pc.onconnectionstatechange = () => {
-                    if (pc.connectionState === "disconnected" || pc.connectionState === "failed") {
-                        if (isScreenShare) {
-                            setScreenPeers((prev) => prev.filter(peerId => peerId !== id));
-                            screenRefs.current.delete(id);
-                        } else {
-                            setMicPeers((prev) => prev.filter(peerId => peerId !== id));
-                            micRefs.current.delete(id);
-                        }
-                    } else if (pc.connectionState === "connected") {
-                        logFunction(`Connected to ${id}`, "success");
-                    }
-                };
-
-                return pc;
-            }, [send, webrtc_servers, encrypt_base64_using_aes, callSecret]);
-
-            // Update Connected State
-            useEffect(() => {
-                setConnected(readyState === ReadyState.OPEN);
-            }, [readyState]);
-
-            // Pings
-            useEffect(() => {
-                let interval;
-                if (connected) {
-                    interval = setInterval(async () => {
-                        let time = Date.now()
-                        await send(
-                            "ping",
-                            {
-                                message: "Ping from Client",
-                                log_level: -1
-                            },
-                            {
-                                last_ping: clientPing,
-                            }
-                        ).then(() => {
-                            let newTime = Date.now()
-                            setClientPing(newTime - time)
                         })
-                            .catch(err => {
-                                logFunction(err.message, "info")
-                            })
-                    }, 10000);
+                    };
                 } else {
-                    clearInterval(interval);
+                    let stream = micRefs.current.get(id);
+                    if (stream) {
+                        stream.removeTrack(event.track);
+                    };
+                }
+            }
+
+            // Handle Tracks
+            if (isScreenShare) {
+                let stream = screenRefs.current.get(id);
+                if (!stream) {
+                    stream = new MediaStream();
+                    screenRefs.current.set(id, stream);
                 }
 
-                return () => clearInterval(interval);
-            }, [connected, send]);
-
-            // Identification
-            useEffect(() => {
-                async function sendIdentification() {
-                    if (connected) {
-                        send("identification",
-                            {
-                                message: "Client identifying",
-                                log_level: 0
-                            },
-                            {
-                                call_id: callId,
-                                user_id: ownUuid,
-                                private_key_hash: privateKeyHash,
-                                call_secret_sha: await sha256(callSecret),
-                            })
-                            .then(data => {
-                                if (data.type === "identification_response") {
-                                    setIdentified(true)
-                                } else {
-                                    setIdentified(false);
-                                }
-                            })
-                    } else {
-                        setIdentified(false);
-                    }
+                event.track.enabled = true;
+                stream.addTrack(event.track);
+                send("start_stream", {
+                    message: "Sending Start Stream Status",
+                    log_level: 0
+                }, {
+                    user_id: id,
+                });
+            } else {
+                let stream = micRefs.current.get(id);
+                if (!stream) {
+                    stream = new MediaStream();
+                    micRefs.current.set(id, stream);
                 }
 
-                sendIdentification();
-            }, [connected, send]);
+                event.track.enabled = true;
+                stream.addTrack(event.track);
+            }
 
-            // Get Mic Stream
-            useEffect(() => {
-                async function getMedia() {
-                    micStreamRef.current = await navigator.mediaDevices.getUserMedia({
-                        audio: true,
-                    });
-                };
+            // Update Peers
+            if (isScreenShare) {
+                setScreenPeers((prev) =>
+                    Array.from(new Set([...prev, id])),
+                );
+            } else {
+                setMicPeers((prev) =>
+                    Array.from(new Set([...prev, id])),
+                );
+            }
+        };
 
-                getMedia();
-            }, []);
-
-            // Mute
-            useEffect(() => {
-                if (micStreamRef.current) {
-                    micStreamRef.current.getAudioTracks().forEach((track) => {
-                        track.enabled = !currentCall.mute;
-                    });
+        if (isInitiator) {
+            pc.onnegotiationneeded = async () => {
+                if (pc.signalingState !== "stable") {
+                    return;
                 }
-            }, [currentCall.mute]);
+
+                let offer = await pc.createOffer({
+                    offerToReceiveAudio: !isScreenShare,
+                    offerToReceiveVideo: isScreenShare,
+                });
+
+                if (pc.signalingState !== "stable") {
+                    return;
+                }
+
+                await pc.setLocalDescription(offer);
+
+                await send("webrtc_sdp", {
+                    message: "Sending SDP Offer",
+                    log_level: 0
+                }, {
+                    payload: await encrypt_base64_using_aes(
+                        btoa(JSON.stringify(offer)),
+                        callSecret,
+                    ),
+                    screen_share: isScreenShare,
+                    receiver_id: id,
+                });
+            }
         }
-    }, [createCall]);
+
+        pc.onconnectionstatechange = () => {
+            if (pc.connectionState === "disconnected" || pc.connectionState === "failed") {
+                if (isScreenShare) {
+                    setScreenPeers((prev) => prev.filter(peerId => peerId !== id));
+                    screenRefs.current.delete(id);
+                } else {
+                    setMicPeers((prev) => prev.filter(peerId => peerId !== id));
+                    micRefs.current.delete(id);
+                }
+            } else if (pc.connectionState === "connected") {
+                logFunction(`Connected to ${id}`, "success");
+            }
+        };
+
+        return pc;
+    }, [send, webrtc_servers, encrypt_base64_using_aes, callSecret]);
+
+    // Update Connected State
+    useEffect(() => {
+        setConnected(readyState === ReadyState.OPEN);
+    }, [readyState]);
+
+    // Pings
+    useEffect(() => {
+        let interval;
+        if (connected) {
+            interval = setInterval(async () => {
+                let time = Date.now()
+                await send(
+                    "ping",
+                    {
+                        message: "Ping from Client",
+                        log_level: -1
+                    },
+                    {
+                        last_ping: clientPing,
+                    }
+                ).then(() => {
+                    let newTime = Date.now()
+                    setClientPing(newTime - time)
+                })
+                    .catch(err => {
+                        logFunction(err.message, "info")
+                    })
+            }, 10000);
+        } else {
+            clearInterval(interval);
+        }
+
+        return () => clearInterval(interval);
+    }, [connected, send]);
+
+    // Identification
+    useEffect(() => {
+        async function sendIdentification() {
+            if (connected) {
+                send("identification",
+                    {
+                        message: "Client identifying",
+                        log_level: 0
+                    },
+                    {
+                        call_id: callId,
+                        user_id: ownUuid,
+                        private_key_hash: privateKeyHash,
+                        call_secret_sha: await sha256(callSecret),
+                    })
+                    .then(data => {
+                        if (data.type === "identification_response") {
+                            setIdentified(true)
+                        } else {
+                            setIdentified(false);
+                        }
+                    })
+            } else {
+                setIdentified(false);
+            }
+        }
+
+        sendIdentification();
+    }, [connected, send]);
+
+    // Get Mic Stream
+    useEffect(() => {
+        async function getMedia() {
+            micStreamRef.current = await navigator.mediaDevices.getUserMedia({
+                audio: true,
+            });
+        };
+
+        getMedia();
+    }, []);
+
+    // Mute
+    useEffect(() => {
+        if (micStreamRef.current) {
+            micStreamRef.current.getAudioTracks().forEach((track) => {
+                track.enabled = !currentCall.mute;
+            });
+        }
+    }, [currentCall.mute]);
 
     // Unmount Cleanup
     useEffect(() => {
