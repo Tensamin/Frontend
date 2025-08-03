@@ -1,5 +1,5 @@
 // Package Imports
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo, useCallback } from "react";
 import * as Icon from "lucide-react";
 
 // Lib Imports
@@ -23,49 +23,64 @@ import {
 import { VoiceModal } from "@/components/page/root/user-modal/main";
 import { RemoteStreamVideo, InviteItem, User } from "@/components/page/voice/call";
 
+// Constants
+const UI_UPDATE_INTERVAL = 5000; // Reduced from 3000ms to 5000ms
+
 // Main
 export function Main() {
-  let { currentCall, chatsArray, ownUuid } = useUsersContext();
-  let [inviteOpen, setInviteOpen] = useState(false);
-  let [usersWithSelf, setUsersWithSelf] = useState([]);
-  let [focused, setFocused] = useState(ownUuid);
-  let [, setTick] = useState(0);
+  const { currentCall, chatsArray, ownUuid } = useUsersContext();
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [usersWithSelf, setUsersWithSelf] = useState([]);
+  const [focused, setFocused] = useState(ownUuid);
+  const [, setTick] = useState(0);
 
-  useEffect(() => {
-    let userSet = new Set(currentCall.users);
+  // Memoized users list to prevent unnecessary re-renders
+  const memoizedUsersWithSelf = useMemo(() => {
+    const userSet = new Set(currentCall.users);
     userSet.add(ownUuid);
-    setUsersWithSelf(Array.from(userSet));
+    return Array.from(userSet);
   }, [currentCall.users, ownUuid]);
 
+  // Update users when call users change
   useEffect(() => {
-    // Force update function that triggers a re-render
-    let forceUpdate = () => {
-      setTick((t) => t + 1);
-    };
+    setUsersWithSelf(memoizedUsersWithSelf);
+  }, [memoizedUsersWithSelf]);
+
+  // Optimized force update function
+  const forceUpdate = useCallback(() => {
+    setTick((t) => t + 1);
+  }, []);
+
+  // Optimized UI update management
+  useEffect(() => {
+    // Listen for remote stream changes
+    const handleStreamChange = () => forceUpdate();
     
-    // Listen for remote stream changes to update UI
-    window.addEventListener("remote-streams-changed", forceUpdate);
+    if (typeof window !== "undefined") {
+      window.addEventListener("remote-streams-changed", handleStreamChange);
+    }
     
-    // Set up a timer to periodically refresh the UI to ensure streams are displayed
-    // Use a less frequent refresh (3000ms) to reduce console spam
-    const refreshTimer = setInterval(forceUpdate, 3000);
+    // Set up periodic refresh with longer interval to reduce performance impact
+    const refreshTimer = setInterval(forceUpdate, UI_UPDATE_INTERVAL);
     
-    // Set up a check for connection state and stream validity
+    // Optional: Log active streams less frequently
     const streamCheckTimer = setInterval(() => {
       if (typeof window !== "undefined" && window.getAllScreenStreams) {
         const streams = window.getAllScreenStreams();
         if (streams.length > 0) {
-          console.log(`Periodic check: found ${streams.length} active screen streams`);
+          console.log(`Active screen streams: ${streams.length}`);
         }
       }
-    }, 10000); // Check every 10 seconds instead of 3
+    }, 15000); // Check every 15 seconds instead of 10
     
     return () => {
-      window.removeEventListener("remote-streams-changed", forceUpdate);
+      if (typeof window !== "undefined") {
+        window.removeEventListener("remote-streams-changed", handleStreamChange);
+      }
       clearInterval(refreshTimer);
       clearInterval(streamCheckTimer);
     };
-  }, []);
+  }, [forceUpdate]);
 
   return (
     <div className="flex flex-col gap-1 h-full w-full">
@@ -113,128 +128,148 @@ export function Main() {
         </CommandDialog>
       </div>
 
-      {/* Remote Screen Shares */}
+      {/* Optimized Remote Screen Shares */}
       <div className="flex-grow min-h-0 flex flex-col gap-2 h-full m-5">
-        {typeof window !== "undefined" && window.getAllScreenStreams && (
-          <>
-            {/* Get streams and create a map */}
-            {(() => {
-              // Get all available screen streams
-              const streams = window.getAllScreenStreams();
-              
-              // Create a Map of user ID to stream info
-              const streamMap = new Map();
-              
-              // Process streams in a more detailed way
-              streams.forEach(({ type, peerId, stream, endingSoon }) => {
-                // For local streams, use the ownUuid
-                const userId = type === 'local' ? ownUuid : (peerId || ownUuid);
-                
-                // Check if stream has active video tracks
-                const videoTracks = stream.getVideoTracks();
-                const hasActiveTracks = videoTracks.some(track => 
-                  track.readyState === 'live' && track.enabled && !track.muted
-                );
-                
-                // Store stream with metadata
-                streamMap.set(userId, {
-                  stream,
-                  active: hasActiveTracks,
-                  endingSoon: endingSoon || false,
-                  type
-                });
-              });
-
-              // Create combined items array (users and streams)
-              const allItems = usersWithSelf.map(userId => {
-                const hasStreamInfo = streamMap.has(userId);
-                const streamInfo = hasStreamInfo ? streamMap.get(userId) : null;
-                
-                return {
-                  id: userId,
-                  isStreaming: hasStreamInfo && (streamInfo.active || streamInfo.endingSoon),
-                  stream: hasStreamInfo ? streamInfo.stream : null,
-                  endingSoon: hasStreamInfo ? streamInfo.endingSoon : false,
-                  streamType: hasStreamInfo ? streamInfo.type : null
-                };
-              });
-
-              // Separate focused and non-focused items
-              const focusedItem = allItems.find(item => item.id === focused);
-              const otherItems = allItems.filter(item => item.id !== focused);
-
-              return (
-                <>
-                  {/* Focused Item Display */}
-                  {focusedItem && (
-                    <div className="flex-grow min-h-0">
-                      <div className="w-full h-full relative">
-                        {focusedItem.isStreaming ? (
-                          <>
-                            <RemoteStreamVideo
-                              stream={focusedItem.stream}
-                              className="w-full h-full object-contain rounded-xl bg-input/20 border"
-                            />
-                            {focusedItem.endingSoon && (
-                              <div className="absolute top-2 right-2 bg-destructive text-white px-2 py-1 rounded-md text-sm">
-                                Stream Ended
-                              </div>
-                            )}
-                          </>
-                        ) : (
-                          <User
-                            id={focusedItem.id}
-                            className="w-full h-full object-contain border-1"
-                            avatarSize={50}
-                          />
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Non-focused Items Grid */}
-                  <div className="grid grid-cols-3 gap-2">
-                    {otherItems.map(item => (
-                      <button
-                        key={item.id}
-                        className="w-[16rem] h-[9rem] relative"
-                        onClick={() => {
-                          setFocused(item.id)
-                        }}
-                      >
-                        {item.isStreaming ? (
-                          <>
-                            <RemoteStreamVideo
-                              stream={item.stream}
-                              className="w-full h-full object-cover rounded-2xl border"
-                            />
-                            {item.endingSoon && (
-                              <div className="absolute top-1 right-1 bg-destructive text-white px-1 py-0.5 rounded text-xs">
-                                Ended
-                              </div>
-                            )}
-                            {item.streamType === 'local' && (
-                              <div className="absolute bottom-1 left-1 bg-primary text-white px-1 py-0.5 rounded text-xs">
-                                You
-                              </div>
-                            )}
-                          </>
-                        ) : (
-                          <User
-                            id={item.id}
-                            className="w-full h-full object-cover rounded-2xl border"
-                            avatarSize={20}
-                          />
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                </>
-              );
-            })()}
-          </>
-        )}
+        <OptimizedStreamDisplay
+          ownUuid={ownUuid}
+          usersWithSelf={usersWithSelf}
+          focused={focused}
+          setFocused={setFocused}
+        />
       </div>
     </div>
   );
 }
+
+// Optimized stream display component to prevent unnecessary re-renders
+const OptimizedStreamDisplay = React.memo(({ ownUuid, usersWithSelf, focused, setFocused }) => {
+  // Memoized stream processing
+  const streamData = useMemo(() => {
+    if (typeof window === "undefined" || !window.getAllScreenStreams) {
+      return { focusedItem: null, otherItems: [] };
+    }
+
+    const streams = window.getAllScreenStreams();
+    const streamMap = new Map();
+    
+    // Process streams efficiently
+    streams.forEach(({ type, peerId, stream, endingSoon }) => {
+      const userId = type === 'local' ? ownUuid : (peerId || ownUuid);
+      
+      // Check for active video tracks more efficiently
+      const videoTracks = stream.getVideoTracks();
+      const hasActiveTracks = videoTracks.length > 0 && videoTracks.some(track => 
+        track.readyState === 'live' && track.enabled && !track.muted
+      );
+      
+      streamMap.set(userId, {
+        stream,
+        active: hasActiveTracks,
+        endingSoon: endingSoon || false,
+        type
+      });
+    });
+
+    // Create user items with stream info
+    const allItems = usersWithSelf.map(userId => {
+      const streamInfo = streamMap.get(userId);
+      return {
+        id: userId,
+        isStreaming: streamInfo && (streamInfo.active || streamInfo.endingSoon),
+        stream: streamInfo?.stream || null,
+        endingSoon: streamInfo?.endingSoon || false,
+        streamType: streamInfo?.type || null
+      };
+    });
+
+    // Separate focused and other items
+    const focusedItem = allItems.find(item => item.id === focused);
+    const otherItems = allItems.filter(item => item.id !== focused);
+
+    return { focusedItem, otherItems };
+  }, [ownUuid, usersWithSelf, focused]);
+
+  const { focusedItem, otherItems } = streamData;
+
+  return (
+    <>
+      {/* Focused Item Display */}
+      {focusedItem && (
+        <div className="flex-grow min-h-0">
+          <div className="w-full h-full relative">
+            {focusedItem.isStreaming ? (
+              <>
+                <RemoteStreamVideo
+                  stream={focusedItem.stream}
+                  className="w-full h-full object-contain rounded-xl bg-input/20 border"
+                />
+                {focusedItem.endingSoon && (
+                  <div className="absolute top-2 right-2 bg-destructive text-white px-2 py-1 rounded-md text-sm">
+                    Stream Ended
+                  </div>
+                )}
+                {focusedItem.streamType === 'local' && (
+                  <div className="absolute bottom-2 left-2 bg-primary text-white px-2 py-1 rounded-md text-sm">
+                    Your Screen
+                  </div>
+                )}
+              </>
+            ) : (
+              <User
+                id={focusedItem.id}
+                className="w-full h-full object-contain border-1"
+                avatarSize={50}
+              />
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Non-focused Items Grid */}
+      {otherItems.length > 0 && (
+        <div className="grid grid-cols-3 gap-2">
+          {otherItems.map(item => (
+            <StreamItem
+              key={item.id}
+              item={item}
+              onClick={() => setFocused(item.id)}
+            />
+          ))}
+        </div>
+      )}
+    </>
+  );
+});
+
+// Memoized stream item component
+const StreamItem = React.memo(({ item, onClick }) => (
+  <button
+    className="w-[16rem] h-[9rem] relative"
+    onClick={onClick}
+  >
+    {item.isStreaming ? (
+      <>
+        <RemoteStreamVideo
+          stream={item.stream}
+          className="w-full h-full object-cover rounded-2xl border"
+        />
+        {item.endingSoon && (
+          <div className="absolute top-1 right-1 bg-destructive text-white px-1 py-0.5 rounded text-xs">
+            Ended
+          </div>
+        )}
+        {item.streamType === 'local' && (
+          <div className="absolute bottom-1 left-1 bg-primary text-white px-1 py-0.5 rounded text-xs">
+            You
+          </div>
+        )}
+      </>
+    ) : (
+      <User
+        id={item.id}
+        className="w-full h-full object-cover rounded-2xl border"
+        avatarSize={20}
+      />
+    )}
+  </button>
+));

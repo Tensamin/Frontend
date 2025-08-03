@@ -1,5 +1,5 @@
 // Package Imports
-import React, { useState, useEffect, useMemo, memo, useRef } from "react";
+import React, { useState, useEffect, useMemo, memo, useRef, useCallback } from "react";
 import * as Icon from "lucide-react";
 import { Bouncy } from "ldrs/react";
 import "ldrs/react/Bouncy.css";
@@ -41,102 +41,134 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { MiniMiniUserModal } from "@/components/page/root/user-modal/main";
 import { RemoteStreamVideo } from "@/components/page/voice/call";
 
+// Constants
+const SCREEN_STREAM_UPDATE_INTERVAL = 2000; // Reduced from 1000ms to 2000ms
+
 // Main
 export function VoiceControls() {
-    let {
+    const {
         currentCall,
         setCurrentCall,
         stopVoiceCall,
         currentCallStream,
         setCurrentCallStream,
     } = useUsersContext();
-    let { setPage } = usePageContext();
+    const { setPage } = usePageContext();
 
-    let [expandUsers, setExpandUsers] = useState(true);
-    let [streamError, setStreamError] = useState(null);
-    let [screenStreams, setScreenStreams] = useState([]);
+    const [expandUsers, setExpandUsers] = useState(true);
+    const [streamError, setStreamError] = useState(null);
+    const [screenStreams, setScreenStreams] = useState([]);
+    const intervalRef = useRef(null);
 
-    // Update screen streams when they change
+    // Optimized screen stream update function
+    const updateScreenStreams = useCallback(() => {
+        if (typeof window !== "undefined" && window.getAllScreenStreams) {
+            const streams = window.getAllScreenStreams();
+            setScreenStreams(prevStreams => {
+                // Only update if streams actually changed to prevent unnecessary re-renders
+                const streamIds = streams.map(s => s.stream.id).sort().join(',');
+                const prevStreamIds = prevStreams.map(s => s.stream.id).sort().join(',');
+                
+                if (streamIds !== prevStreamIds) {
+                    return streams;
+                }
+                return prevStreams;
+            });
+        }
+    }, []);
+
+    // Optimized screen stream management
     useEffect(() => {
-        const updateScreenStreams = () => {
-            if (typeof window !== "undefined" && window.getAllScreenStreams) {
-                setScreenStreams(window.getAllScreenStreams());
-            }
-        };
-
         // Initial update
         updateScreenStreams();
 
-        // Set up interval to check for updates more frequently (1000ms instead of 500ms but still responsive)
-        const interval = setInterval(updateScreenStreams, 1000);
+        // Set up optimized interval with reduced frequency
+        intervalRef.current = setInterval(updateScreenStreams, SCREEN_STREAM_UPDATE_INTERVAL);
 
-        // Cleanup function
+        // Listen for immediate updates via events
+        const handleStreamChange = () => updateScreenStreams();
+        if (typeof window !== "undefined") {
+            window.addEventListener("remote-streams-changed", handleStreamChange);
+        }
+
         return () => {
-            clearInterval(interval);
-            // Don't stop screen sharing on unmount to prevent breaking when component unmounts
-            // This allows screen sharing to continue working when the component is temporarily unmounted
+            if (intervalRef.current) {
+                clearInterval(intervalRef.current);
+            }
+            if (typeof window !== "undefined") {
+                window.removeEventListener("remote-streams-changed", handleStreamChange);
+            }
         };
-    }, []);
+    }, [updateScreenStreams]);
 
-    let handleStartStream = async () => {
+    // Optimized stream handling functions
+    const handleStartStream = useCallback(async () => {
         setStreamError(null);
         try {
             if (typeof window !== "undefined" && window.startScreenShare) {
                 await window.startScreenShare();
+                // Force immediate update after starting
+                setTimeout(updateScreenStreams, 100);
             }
         } catch (err) {
-            setStreamError("Screen sharing failed: " + err.message);
+            const errorMsg = "Screen sharing failed: " + err.message;
+            setStreamError(errorMsg);
+            log(errorMsg, "showError");
         }
-    };
+    }, [updateScreenStreams]);
 
-    let handleStopStream = () => {
+    const handleStopStream = useCallback(() => {
         if (typeof window !== "undefined" && window.stopScreenShare) {
             window.stopScreenShare();
+            // Force immediate update after stopping
+            setTimeout(updateScreenStreams, 100);
         }
-    };
+    }, [updateScreenStreams]);
 
-    function setCurrentCallActive(event) {
+    // Optimized state update functions
+    const setCurrentCallActive = useCallback((event) => {
         setCurrentCallStream((prev) => ({
             ...prev,
             audio: event,
         }));
-    }
+    }, [setCurrentCallStream]);
 
-    function changeStreamResolution(event) {
+    const changeStreamResolution = useCallback((event) => {
         setCurrentCallStream((prev) => ({
             ...prev,
             resolution: event,
         }));
-    }
+    }, [setCurrentCallStream]);
 
-    function changeStreamRefresh(event) {
+    const changeStreamRefresh = useCallback((event) => {
         setCurrentCallStream((prev) => ({
             ...prev,
             refresh: event,
         }));
-    }
+    }, [setCurrentCallStream]);
 
-    function toggleMute() {
+    const toggleMute = useCallback(() => {
         setCurrentCall((prev) => ({
             ...prev,
             mute: !prev.mute,
             deaf: !prev.mute ? prev.deaf : false, // Un-deafen if un-muting
         }));
-    }
+    }, [setCurrentCall]);
 
-    function toggleDeaf() {
+    const toggleDeaf = useCallback(() => {
         setCurrentCall((prev) => ({
             ...prev,
             deaf: !prev.deaf,
             mute: prev.deaf ? prev.mute : true, // Mute if deafening
         }));
-    }
+    }, [setCurrentCall]);
 
-    let memoizedUserList = useMemo(
+    // Memoized user list to prevent unnecessary re-renders
+    const memoizedUserList = useMemo(
         () =>
             currentCall.users.length !== 0 ? (
-                currentCall.users.map((chat) => (
-                    <MemoizedInviteItem id={chat} key={chat} />
+                currentCall.users.map((userId) => (
+                    <MemoizedInviteItem id={userId} key={userId} />
                 ))
             ) : (
                 <div className="flex w-full items-center justify-center gap-3 text-sm">
@@ -147,11 +179,12 @@ export function VoiceControls() {
         [currentCall.users],
     );
 
+    // Error handling effect
     useEffect(() => {
         if (streamError && streamError !== "") {
-            log(streamError, "showError")
+            log(streamError, "showError");
         }
-    }, [streamError])
+    }, [streamError]);
 
     return (
         <div className="flex w-full flex-col gap-3">
