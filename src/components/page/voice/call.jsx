@@ -17,6 +17,9 @@ import { useWebSocketContext } from "@/components/context/websocket";
 // Components
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+    CommandItem,
+} from "@/components/ui/command"
 
 // Main
 export function VoiceCall() {
@@ -66,12 +69,12 @@ export function VoiceCall() {
             if (peerConnections.current.size > 0) {
                 // Check if we need to trigger a remote-streams-changed event
                 let shouldNotifyUI = false;
-                
+
                 // Check for dead tracks in remote streams and clean them up
                 remoteScreenRefs.current.forEach((stream, peerId) => {
                     const videoTracks = stream.getVideoTracks();
                     let trackRemoved = false;
-                    
+
                     videoTracks.forEach(track => {
                         // Check if track is ended or muted
                         if (track.readyState === 'ended' || !track.enabled) {
@@ -81,13 +84,13 @@ export function VoiceCall() {
                             shouldNotifyUI = true;
                         }
                     });
-                    
+
                     // If all tracks are removed, we might want to clean up the stream
                     if (trackRemoved && stream.getTracks().length === 0) {
                         log(`All tracks removed from peer ${peerId}, cleaning up`, "debug", "Voice WebSocket:");
                     }
                 });
-                
+
                 // Only handle our own screen sharing tracks
                 if (screenStreamRef.current) {
                     peerConnections.current.forEach(async (pc, userId) => {
@@ -95,17 +98,17 @@ export function VoiceCall() {
                             // Check connection state before attempting any operations
                             if (pc.connectionState === 'connected' && pc.signalingState === 'stable') {
                                 const transceivers = pc.getTransceivers();
-                                const videoTransceiver = transceivers.find(t => 
+                                const videoTransceiver = transceivers.find(t =>
                                     (t.receiver && t.receiver.track && t.receiver.track.kind === 'video') ||
                                     (t.mid !== null && t.direction.includes('recv'))
                                 );
-                                
+
                                 const videoTrack = screenStreamRef.current.getVideoTracks()[0];
-                                
+
                                 // Check if we need to replace the track
                                 if (videoTransceiver && videoTrack) {
                                     const currentTrack = videoTransceiver.sender.track;
-                                    
+
                                     // If we don't have a track or it's different, replace it
                                     if (!currentTrack || currentTrack.id !== videoTrack.id) {
                                         try {
@@ -118,14 +121,14 @@ export function VoiceCall() {
                                         }
                                     }
                                 }
-                                
+
                                 // Check audio tracks
                                 const senders = pc.getSenders();
                                 const screenAudioTracks = screenStreamRef.current.getAudioTracks();
-                                
+
                                 screenAudioTracks.forEach(track => {
                                     const trackExists = senders.some(sender => sender.track && sender.track.id === track.id);
-                                    
+
                                     if (!trackExists) {
                                         try {
                                             pc.addTrack(track, screenStreamRef.current);
@@ -142,17 +145,17 @@ export function VoiceCall() {
                         }
                     });
                 }
-                
+
                 // Always dispatch event to ensure UI stays updated
                 if (typeof window !== "undefined") {
                     window.dispatchEvent(new Event("remote-streams-changed"));
                 }
             }
         };
-        
+
         // Set up more frequent status update interval - but not too frequent to avoid conflicts
         const statusInterval = setInterval(notifyScreenShareStatus, 5000);
-        
+
         // Expose functions to start/stop screen sharing globally
         window.startScreenShare = async () => {
             if (!screenSharePermission) {
@@ -187,13 +190,13 @@ export function VoiceCall() {
                     try {
                         const videoTrack = stream.getVideoTracks()[0];
                         const audioTracks = stream.getAudioTracks();
-                        
+
                         // Find existing video transceiver and replace the track
                         const transceivers = pc.getTransceivers();
-                        const videoTransceiver = transceivers.find(t => 
+                        const videoTransceiver = transceivers.find(t =>
                             t.receiver && t.receiver.track && t.receiver.track.kind === 'video'
                         ) || transceivers.find(t => t.mid !== null && t.direction.includes('recv'));
-                        
+
                         if (videoTransceiver && videoTrack) {
                             // Replace the dummy track with our actual screen share
                             await videoTransceiver.sender.replaceTrack(videoTrack);
@@ -204,7 +207,7 @@ export function VoiceCall() {
                             pc.addTrack(videoTrack, stream);
                             log(`Added video track to peer ${userId}`, "debug", "Voice WebSocket:");
                         }
-                        
+
                         // Add audio tracks from screen share
                         audioTracks.forEach(track => {
                             pc.addTrack(track, stream);
@@ -233,13 +236,13 @@ export function VoiceCall() {
         window.stopScreenShare = () => {
             if (screenStreamRef.current) {
                 log("Stopping screen share and notifying all peers", "debug", "Voice WebSocket:");
-                
+
                 // Get track references before stopping them
-                const tracksToRemove = screenStreamRef.current.getTracks().map(track => ({ 
+                const tracksToRemove = screenStreamRef.current.getTracks().map(track => ({
                     id: track.id,
-                    kind: track.kind 
+                    kind: track.kind
                 }));
-                
+
                 // Stop all tracks
                 screenStreamRef.current.getTracks().forEach(track => {
                     track.stop();
@@ -257,10 +260,10 @@ export function VoiceCall() {
                         tracksToRemove.forEach(trackInfo => {
                             if (trackInfo.kind === 'video') {
                                 // Find the video transceiver and replace with null (stop sending)
-                                const videoTransceiver = transceivers.find(t => 
+                                const videoTransceiver = transceivers.find(t =>
                                     t.sender.track && t.sender.track.id === trackInfo.id
                                 );
-                                
+
                                 if (videoTransceiver) {
                                     try {
                                         // Replace with null to stop sending video
@@ -287,7 +290,7 @@ export function VoiceCall() {
                                 }
                             }
                         });
-                        
+
                         // Simple renegotiation - let the normal negotiation process handle it
                         if (trackRemoved && pc.signalingState === 'stable' && pc.connectionState === 'connected') {
                             log(`Track changes completed for peer ${userId}, letting normal negotiation handle updates`, "debug", "Voice WebSocket:");
@@ -299,7 +302,7 @@ export function VoiceCall() {
 
                 // Clear the screen stream reference
                 screenStreamRef.current = null;
-                
+
                 // Notify clients about stream change
                 if (typeof window !== 'undefined') {
                     // Dispatch multiple events to ensure UI updates
@@ -345,7 +348,7 @@ export function VoiceCall() {
                 const localHasActiveTracks = localVideoTracks.some(
                     track => track.enabled && track.readyState === 'live'
                 );
-                
+
                 if (localHasActiveTracks) {
                     streams.push({
                         type: 'local',
@@ -358,13 +361,13 @@ export function VoiceCall() {
             remoteScreenRefs.current.forEach((stream, peerId) => {
                 // Check if the stream has active video tracks
                 const videoTracks = stream.getVideoTracks();
-                
+
                 if (videoTracks && videoTracks.length > 0) {
                     // Double check that at least one track is enabled and live
                     const hasActiveTracks = videoTracks.some(
                         track => track.enabled && track.readyState === 'live'
                     );
-                    
+
                     if (hasActiveTracks) {
                         streams.push({
                             type: 'remote',
@@ -382,7 +385,7 @@ export function VoiceCall() {
                                 }
                             }
                         });
-                        
+
                         // If after cleanup we still have video tracks, include the stream
                         // This is important for recently stopped streams that might still have useful data
                         if (stream.getVideoTracks().length > 0) {
@@ -414,17 +417,17 @@ export function VoiceCall() {
         return () => {
             // Clean up the status interval
             clearInterval(statusInterval);
-            
+
             // Keep the screen share active but make sure to clean up the global methods
             // We're not stopping the screen share on unmount, as this was causing issues
             const currentScreenStream = screenStreamRef.current;
-            
+
             delete window.startScreenShare;
             delete window.stopScreenShare;
             delete window.toggleScreenShare;
             delete window.getAllScreenStreams;
             delete window.getScreenStream;
-            
+
             // Dispatch event one more time to notify UI components
             if (typeof window !== "undefined") {
                 window.dispatchEvent(new Event("remote-streams-changed"));
@@ -527,7 +530,7 @@ export function VoiceCall() {
                         videoTransceiver.direction = 'sendrecv';
                         log(`Replaced dummy video track with screen share for ${remoteUserId}`, "debug", "Voice WebSocket:");
                     }
-                    
+
                     // Add any audio tracks from screen share
                     screenStreamRef.current.getAudioTracks().forEach((track) => {
                         pc.addTrack(track, screenStreamRef.current);
@@ -583,10 +586,10 @@ export function VoiceCall() {
             pc.ontrack = (event) => {
                 log(
                     `Received ${event.track.kind} track from ${remoteUserId} (ID: ${event.track.id}, enabled: ${event.track.enabled}, readyState: ${event.track.readyState}).`,
-                    "debug", 
+                    "debug",
                     "Voice WebSocket:"
                 );
-                
+
                 // Listen for track state changes
                 event.track.onended = () => {
                     log(`Track ${event.track.id} from ${remoteUserId} ended`, "debug", "Voice WebSocket:");
@@ -609,7 +612,7 @@ export function VoiceCall() {
                         window.dispatchEvent(new Event("remote-streams-changed"));
                     }
                 };
-                
+
                 // Check if this is a video track (potential screen share)
                 if (event.track.kind === 'video') {
                     // Always create or get the remote stream for this user
@@ -628,20 +631,20 @@ export function VoiceCall() {
                     const trackExists = Array.from(remoteStream.getTracks()).some(
                         track => track.id === event.track.id
                     );
-                    
+
                     if (!trackExists) {
                         log(
                             `Adding remote video track (screen share) from ${remoteUserId} (ID: ${event.track.id}).`,
                             "debug",
                             "Voice WebSocket:",
                         );
-                        
+
                         // Make sure track is enabled
                         event.track.enabled = true;
-                        
+
                         // Add the track to our stream
                         remoteStream.addTrack(event.track);
-                        
+
                         // Notify UI immediately that we have a new remote screen stream
                         if (typeof window !== "undefined") {
                             window.dispatchEvent(new Event("remote-streams-changed"));
@@ -671,7 +674,7 @@ export function VoiceCall() {
                     const trackExists = Array.from(remoteStream.getTracks()).some(
                         track => track.id === event.track.id
                     );
-                    
+
                     if (!trackExists) {
                         log(
                             `Adding remote audio track from ${remoteUserId}.`,
@@ -699,7 +702,7 @@ export function VoiceCall() {
                         );
                         return;
                     }
-                    
+
                     log(
                         `Negotiation needed for ${remoteUserId} (isInitiator: true). Creating offer...`,
                         "debug",
@@ -710,7 +713,7 @@ export function VoiceCall() {
                             offerToReceiveAudio: true,
                             offerToReceiveVideo: true
                         });
-                        
+
                         // Double-check signaling state before setting local description
                         if (pc.signalingState !== 'stable') {
                             log(
@@ -720,7 +723,7 @@ export function VoiceCall() {
                             );
                             return;
                         }
-                        
+
                         await pc.setLocalDescription(offer);
                         log(
                             `Created and set local offer for ${remoteUserId}.`,
@@ -926,14 +929,14 @@ export function VoiceCall() {
                         let sdp_obj = new RTCSessionDescription(
                             JSON.parse(sdp_payload),
                         );
-                        
+
                         // Log that we're processing an SDP message
                         log(
                             `Processing ${sdp_obj.type} from ${sdp_sender}`,
                             "debug",
                             "Voice WebSocket:",
                         );
-                        
+
                         // Set the remote description
                         await pc.setRemoteDescription(sdp_obj);
 
@@ -944,13 +947,13 @@ export function VoiceCall() {
                                 "debug",
                                 "Voice WebSocket:",
                             );
-                            
+
                             // Create answer with appropriate constraints to allow screen sharing
                             let answer = await pc.createAnswer({
                                 offerToReceiveAudio: true,
                                 offerToReceiveVideo: true // Important for receiving screen shares
                             });
-                            
+
                             // Set our local description
                             await pc.setLocalDescription(answer);
 
@@ -965,13 +968,13 @@ export function VoiceCall() {
                                     receiver_id: sdp_sender,
                                 },
                             });
-                            
+
                             log(
                                 `Answer sent to ${sdp_sender}`,
                                 "debug",
                                 "Voice WebSocket:",
                             );
-                            
+
                             // After processing a renegotiation, notify UI to update in case new streams arrived
                             if (typeof window !== "undefined") {
                                 window.dispatchEvent(new Event("remote-streams-changed"));
@@ -1154,41 +1157,41 @@ export function RemoteStreamVideo({ stream, className }) {
     let animationFrameIdRef = useRef(null);
     let lastFrameTimeRef = useRef(0);
     let noUpdateCountRef = useRef(0);
-    
+
     // Store the stream ID and track IDs to detect changes
     let streamIdRef = useRef(stream?.id);
     let trackIdsRef = useRef([]);
     let trackStatesRef = useRef({});
-    
+
     useEffect(() => {
         // Safety checks
         if (!stream || !canvasRef.current) return;
-        
+
         // Get current track information
         const currentTracks = stream.getTracks();
         const currentTrackIds = currentTracks.map(t => t.id).sort().join(',');
-        
+
         // Check if we have active video tracks
         const hasActiveVideoTracks = currentTracks.some(
             track => track.kind === 'video' && track.enabled && track.readyState === 'live'
         );
-        
+
         // If no active video tracks, we might need to clear the display
         if (!hasActiveVideoTracks) {
             log(`Stream ${stream.id} has no active video tracks, might be stopped`, "debug", "Remote Video:");
         }
-        
+
         // Log that we're attaching to a stream
         log(`Attaching to stream: ${stream.id} with ${currentTracks.length} tracks, active video: ${hasActiveVideoTracks}`, "debug", "Remote Video:");
-        
+
         // Check if this is a new stream or tracks changed
         const isNewStream = streamIdRef.current !== stream.id;
         const tracksChanged = trackIdsRef.current !== currentTrackIds;
-        
+
         // Update refs with new track information
         streamIdRef.current = stream.id;
         trackIdsRef.current = currentTrackIds;
-        
+
         // Update individual track state information
         trackStatesRef.current = {};
         currentTracks.forEach(track => {
@@ -1198,16 +1201,16 @@ export function RemoteStreamVideo({ stream, className }) {
                 muted: track.muted
             };
         });
-        
+
         // Clean up previous video element if stream or tracks changed
         if ((isNewStream || tracksChanged) && videoRef.current) {
             log(`Stream or tracks changed, cleaning up previous video element`, "debug", "Remote Video:");
             cancelAnimationFrame(animationFrameIdRef.current);
-            
+
             // Disconnect from our video element
             videoRef.current.srcObject = null;
             videoRef.current.load(); // Reset the video element completely
-            
+
             // Reset frame timing
             lastFrameTimeRef.current = 0;
             noUpdateCountRef.current = 0;
@@ -1216,10 +1219,10 @@ export function RemoteStreamVideo({ stream, className }) {
         // Create or update video element for the stream
         if (isNewStream || tracksChanged || !videoRef.current) {
             log(`Setting up video element for stream ${stream.id}`, "debug", "Remote Video:");
-            
+
             let videoElement = videoRef.current || document.createElement("video");
             videoRef.current = videoElement;
-            
+
             // Make sure video tracks are enabled
             stream.getVideoTracks().forEach(track => {
                 if (!track.enabled) {
@@ -1227,22 +1230,22 @@ export function RemoteStreamVideo({ stream, className }) {
                     log(`Enabled video track: ${track.id}`, "debug", "Remote Video:");
                 }
             });
-            
+
             // Attach stream to video element with settings for better responsiveness
             videoElement.srcObject = stream;
             videoElement.playsInline = true;
             videoElement.autoplay = true;
             videoElement.muted = true;
-            
+
             // Additional settings to improve playback
             videoElement.setAttribute('playsinline', '');
             videoElement.setAttribute('webkit-playsinline', '');
-            
+
             // Play the video
             videoElement.play().catch((error) => {
                 log(`Video play failed for stream ${stream.id}: ${error}`, "showError");
             });
-            
+
             // Listen for ended event on each track
             stream.getTracks().forEach(track => {
                 track.onended = () => {
@@ -1265,7 +1268,7 @@ export function RemoteStreamVideo({ stream, className }) {
         // Set up canvas
         let canvasElement = canvasRef.current;
         let context = canvasElement.getContext("2d", { alpha: false }); // No alpha for better performance
-        
+
         // Initial canvas size
         if (!canvasElement.width || !canvasElement.height) {
             canvasElement.width = 640; // Default width
@@ -1277,22 +1280,22 @@ export function RemoteStreamVideo({ stream, className }) {
             // Clear the canvas
             context.fillStyle = '#1a1a1a'; // Dark background
             context.fillRect(0, 0, canvasElement.width, canvasElement.height);
-            
+
             // Add text saying stream ended
             context.font = '16px sans-serif';
             context.fillStyle = '#ffffff';
             context.textAlign = 'center';
-            context.fillText('Screen sharing ended', canvasElement.width/2, canvasElement.height/2);
+            context.fillText('Screen sharing ended', canvasElement.width / 2, canvasElement.height / 2);
         }
 
         // Rendering function for smoother playback
         let renderFrame = () => {
             // Check if component is still mounted
             if (!canvasRef.current || !videoRef.current) return;
-            
+
             let videoElement = videoRef.current;
             let now = performance.now();
-            
+
             // Only render if video is actually playing and has content
             if (videoElement.readyState >= 3 && videoElement.videoWidth > 0) {
                 // Check if frame has been updated (by comparing currentTime)
@@ -1301,7 +1304,7 @@ export function RemoteStreamVideo({ stream, className }) {
                     // Reset no-update counter since we have a new frame
                     noUpdateCountRef.current = 0;
                     lastFrameTimeRef.current = videoElement.currentTime;
-                    
+
                     // Resize canvas if needed
                     if (canvasElement.width !== videoElement.videoWidth) {
                         canvasElement.width = videoElement.videoWidth;
@@ -1309,10 +1312,10 @@ export function RemoteStreamVideo({ stream, className }) {
                     if (canvasElement.height !== videoElement.videoHeight) {
                         canvasElement.height = videoElement.videoHeight;
                     }
-                    
+
                     // Clear canvas before drawing
                     context.clearRect(0, 0, canvasElement.width, canvasElement.height);
-                    
+
                     try {
                         // Draw video frame
                         context.drawImage(
@@ -1328,25 +1331,25 @@ export function RemoteStreamVideo({ stream, className }) {
                     // Increment no-update counter - after many frames with no updates, 
                     // we'll consider the stream stalled
                     noUpdateCountRef.current++;
-                    
+
                     // After ~5 seconds (300 frames at 60fps) of no updates, draw a "stalled" message
                     if (noUpdateCountRef.current > 300) {
                         // Check if any tracks are still active
-                        const hasActiveTracks = stream.getTracks().some(t => 
+                        const hasActiveTracks = stream.getTracks().some(t =>
                             t.readyState === 'live' && t.enabled && !t.muted
                         );
-                        
+
                         // If no active tracks, draw the "ended" message
                         if (!hasActiveTracks) {
                             // Draw a clear indication that the stream is stalled/ended
                             context.fillStyle = '#1a1a1a';
                             context.fillRect(0, 0, canvasElement.width, canvasElement.height);
-                            
+
                             context.font = '16px sans-serif';
                             context.fillStyle = '#ffffff';
                             context.textAlign = 'center';
-                            context.fillText('Screen sharing ended', canvasElement.width/2, canvasElement.height/2);
-                            
+                            context.fillText('Screen sharing ended', canvasElement.width / 2, canvasElement.height / 2);
+
                             // Try to trigger a UI update
                             if (typeof window !== "undefined") {
                                 window.dispatchEvent(new Event("remote-streams-changed"));
@@ -1355,7 +1358,7 @@ export function RemoteStreamVideo({ stream, className }) {
                     }
                 }
             }
-            
+
             // Schedule next frame
             animationFrameIdRef.current = requestAnimationFrame(renderFrame);
         };
@@ -1367,7 +1370,7 @@ export function RemoteStreamVideo({ stream, className }) {
         return () => {
             // Cancel any pending animation frame
             cancelAnimationFrame(animationFrameIdRef.current);
-            
+
             // Don't stop tracks here to prevent breaking the stream when component unmounts
             // Just clean up our references
             if (videoRef.current) {
@@ -1398,24 +1401,26 @@ export function User({ id, className, avatarSize }) {
     return (
         <div className={`${className} relative group bg-input/20 rounded-xl flex justify-center items-center`}>
             {avatar !== "..." ? (
-                <Avatar className={`bg-accent/50 border w-${avatarSize} h-${avatarSize}`}>
-                    {avatar !== "" ? (
-                        <Image
-                            className="w-auto h-auto object-fill"
-                            data-slot="avatar-image"
-                            width={250}
-                            height={250}
-                            src={avatar}
-                            alt=""
-                            onError={() => {
-                                setAvatar("")
-                            }}
-                        />
-                    ) : null}
-                    <AvatarFallback>
-                        {convertDisplayNameToInitials(username)}
-                    </AvatarFallback>
-                </Avatar>
+                <div>
+                    <Avatar className={`bg-accent/50 border w-${avatarSize} h-full`}>
+                        {avatar !== "" ? (
+                            <Image
+                                className="w-auto h-auto object-fill"
+                                data-slot="avatar-image"
+                                width={250}
+                                height={250}
+                                src={avatar}
+                                alt=""
+                                onError={() => {
+                                    setAvatar("")
+                                }}
+                            />
+                        ) : null}
+                        <AvatarFallback>
+                            {convertDisplayNameToInitials(username)}
+                        </AvatarFallback>
+                    </Avatar>
+                </div>
             ) : (
                 <Skeleton className="rounded-full size-8" />
             )}

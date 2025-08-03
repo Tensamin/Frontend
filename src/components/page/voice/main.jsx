@@ -85,7 +85,7 @@ export function Main() {
           )}
         </Button>
 
-        {/* Copy Invite Button */}
+        {/* Invite Button */}
         <Button
           className="h-9 gap-2"
           onClick={() => {
@@ -114,7 +114,6 @@ export function Main() {
       </div>
 
       {/* Remote Screen Shares */}
-
       <div className="flex-grow min-h-0 flex flex-col gap-2 h-full m-5">
         {typeof window !== "undefined" && window.getAllScreenStreams && (
           <>
@@ -186,7 +185,7 @@ export function Main() {
                           <User
                             id={focusedItem.id}
                             className="w-full h-full object-contain border-1"
-                            avatarSize={70}
+                            avatarSize={50}
                           />
                         )}
                       </div>
