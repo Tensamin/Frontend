@@ -447,9 +447,14 @@ export let CallProvider = ({ children }) => {
 
     // Init WebSocket
     let { sendMessage, readyState } = useWebSocket(
-        endpoint.client_wss,
+        createCall && callId && callSecret ? endpoint.call_wss : null,
         {
-            onOpen: () => logFunction("Call connected", "info"),
+            onOpen: async () => {
+                logFunction("Call connected", "info");
+                micStreamRef.current = await navigator.mediaDevices.getUserMedia({
+                    audio: true,
+                });
+            },
             onClose: () => {
                 logFunction("Call disconnected", "info");
                 pendingRequests.current.forEach(({ reject, timeoutId }) => {
@@ -468,7 +473,7 @@ export let CallProvider = ({ children }) => {
                 screenRefs.current.clear();
             },
             onMessage: handleWebSocketMessage,
-            shouldReconnect: () => true,
+            shouldReconnect: () => createCall && callId && callSecret,
             share: true,
             reconnectAttempts: 5,
             reconnectInterval: 3000,
@@ -747,17 +752,6 @@ export let CallProvider = ({ children }) => {
 
         sendIdentification();
     }, [connected, send]);
-
-    // Get Mic Stream
-    useEffect(() => {
-        async function getMedia() {
-            micStreamRef.current = await navigator.mediaDevices.getUserMedia({
-                audio: true,
-            });
-        };
-
-        getMedia();
-    }, []);
 
     // Mute
     useEffect(() => {
