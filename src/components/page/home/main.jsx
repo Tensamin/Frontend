@@ -12,6 +12,7 @@ import ls from "@/lib/localStorageManager";
 import { useWebSocketContext } from "@/components/context/websocket";
 import { useEncryptionContext } from "@/components/context/encryption";
 import { useUsersContext } from "@/components/context/users";
+import { useCallContext } from "@/components/context/call";
 
 // Components
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -37,6 +38,7 @@ export function Main() {
     let { ownUuid } = useUsersContext();
     let { send } = useWebSocketContext();
     let { encrypt_base64_using_pubkey } = useEncryptionContext();
+    let { setCallId, setCallSecret, setCreateCall } = useCallContext();
 
     function handleInputChange(e) {
         setNewChatUUID(e)
@@ -141,6 +143,13 @@ export function Main() {
                 </CardHeader>
                 <CardContent className="h-full w-full">
                     <p>Homepage</p>
+                    <Button onClick={() => {
+                        setCallId(ownUuid);
+                        setCallSecret(ownUuid);
+                        setCreateCall(true);
+                    }}>
+                        Temp Start Voice Call
+                    </Button>
                 </CardContent>
             </Card>
             <Card className="w-70">

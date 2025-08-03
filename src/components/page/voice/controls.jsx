@@ -39,7 +39,7 @@ import {
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
 import { MiniMiniUserModal } from "@/components/page/root/user-modal/main";
-import { RemoteStreamVideo } from "@/components/page/voice/call";
+import { RemoteStreamVideo } from "@/components/page/voice/parts";
 
 // Constants
 const SCREEN_STREAM_UPDATE_INTERVAL = 2000; // Reduced from 1000ms to 2000ms

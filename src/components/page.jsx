@@ -9,7 +9,6 @@ import ls from "@/lib/localStorageManager"
 // Context Imports
 import { usePageContext } from "@/components/context/page";
 import { useThemeProvider } from "@/components/context/theme";
-import { useUsersContext } from "@/components/context/users";
 
 // Components
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
@@ -20,13 +19,11 @@ import { Main as ChatMain } from "@/components/page/chat/main"
 import { Main as HomeMain } from "@/components/page/home/main"
 import { Main as SettingsMain } from "@/components/page/settings/main"
 import { Main as VoiceMain } from "@/components/page/voice/main"
-import { VoiceCall } from "@/components/page/voice/call"
-import { GettingCalled } from "@/components/page/voice/active"
+import { GettingCalled } from "@/components/page/voice/parts"
 
 export function Page() {
     let [isVisible, setIsVisible] = useState(false);
     let { page } = usePageContext();
-    let { shouldCreateCall } = useUsersContext();
     let { sidebarRightSide } = useThemeProvider();
 
     useEffect(() => {
@@ -77,9 +74,6 @@ export function Page() {
                 </div>
             </SidebarProvider>
             <Toaster />
-            {shouldCreateCall ? (
-                <VoiceCall />
-            ) : null}
         </>
     )
 };

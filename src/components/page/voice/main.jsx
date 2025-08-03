@@ -20,8 +20,7 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
-import { VoiceModal } from "@/components/page/root/user-modal/main";
-import { RemoteStreamVideo, InviteItem, User } from "@/components/page/voice/call";
+import { RemoteStreamVideo, InviteItem, User } from "@/components/page/voice/parts";
 
 // Constants
 const UI_UPDATE_INTERVAL = 5000; // Reduced from 3000ms to 5000ms

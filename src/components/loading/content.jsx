@@ -38,13 +38,7 @@ export function Loading({ message = "Loading...", error = false, allowDebugToFor
                 <Button
                     className=""
                     onClick={() => {
-                        let message = prompt("Sag mal Fisch")
-                        if (message.toLowerCase() === "fisch") {
-                            alert("Schreib mir mal ob die Farbe vom Button so bleiben soll oder ich die auf was anderes was mehr zum Lade / Error Screen past machen soll \n\n Jetzt lass ich dich aber mal die Main Page laden :)")
-                            returnDebug(true)
-                        } else {
-                            alert("'Fisch' wird anders geschrieben :^)")
-                        }
+                        returnDebug(true)
                     }}
                 >
                     <Icon.Users /> Close (Debug Mode Only)

@@ -14,7 +14,8 @@ import { UsersProvider } from "@/components/context/users"
 import { PageProvider } from "@/components/context/page";
 import { CryptoProvider } from "@/components/context/crypto";
 import { EncryptionProvider } from "@/components/context/encryption";
-import { ThemeProvider } from "@/components/context/theme"
+import { ThemeProvider } from "@/components/context/theme";
+import { CallProvider } from "@/components/context/call";
 
 // Components
 import { Loading } from "@/components/loading/content";
@@ -85,13 +86,15 @@ export function LoadingWrapper() {
             <CryptoProvider>
                 <UsersProvider>
                     <WebSocketProvider>
-                        <MessageProvider>
-                            <PageProvider>
-                                <ThemeProvider>
-                                    <Page />
-                                </ThemeProvider>
-                            </PageProvider>
-                        </MessageProvider>
+                        <CallProvider>
+                            <MessageProvider>
+                                <PageProvider>
+                                    <ThemeProvider>
+                                        <Page />
+                                    </ThemeProvider>
+                                </PageProvider>
+                            </MessageProvider>
+                        </CallProvider>
                     </WebSocketProvider>
                 </UsersProvider>
             </CryptoProvider>
