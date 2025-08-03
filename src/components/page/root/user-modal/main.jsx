@@ -148,7 +148,7 @@ export function SmallUserModal({ display, username, avatar, status, state, showI
               {showIotaStatus && state !== "IOTA_OFFLINE" ? (
                 <Tooltip>
                   <TooltipTrigger asChild>
-                    <div className="w-4 text-foreground/20 scale-85 mt-1">
+                    <div className="w-4 text-foreground/20 scale-85 mt-0.5">
                       <Icon.Activity />
                     </div>
                   </TooltipTrigger>
