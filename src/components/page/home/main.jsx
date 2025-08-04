@@ -38,8 +38,7 @@ export function Main() {
     let { ownUuid } = useUsersContext();
     let { send } = useWebSocketContext();
     let { encrypt_base64_using_pubkey } = useEncryptionContext();
-    let { setCallId, setCallSecret, setCreateCall, getAllScreenStreams } = useCallContext();
-
+    let { callId, setCallId, callSecret, setCallSecret, setCreateCall, clientPing, connected, mute, toggleMute, deaf, toggleDeaf, stream, startScreenStream, stopScreenStream, getScreenStream, getAllScreenStreams, connectedUsers, streamingUsers } = useCallContext();
     function handleInputChange(e) {
         setNewChatUUID(e)
     }
@@ -152,6 +151,16 @@ export function Main() {
                     }}>
                         Temp Start Voice Call
                     </Button>
+                    <p>ID: {callId}</p>
+                    <p>Secret: {callSecret}</p>
+                    <p>Ping: {clientPing}</p>
+                    <p>Connected: {connected}</p>
+                    <p>Mute: {mute}</p>
+                    <p>Deaf: {deaf}</p>
+                    <p>Active Stream: {stream}</p>
+                    <p>All Streams: {JSON.stringify(getAllScreenStreams())}</p>
+                    <p>Connected: {JSON.stringify(connectedUsers)}</p>
+                    <p>Streaming: {JSON.stringify(streamingUsers)}</p>
                 </CardContent>
             </Card>
             <Card className="w-70">
