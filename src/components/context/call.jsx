@@ -75,6 +75,7 @@ export let CallProvider = ({ children }) => {
 
     let micRefs = useRef(new Map());
     let screenRefs = useRef(new Map());
+    let audioRefs = useRef(new Map()); // Separate ref for audio elements
 
     let [connectedUsers, setConnectedUsers] = useState([]);
     let [streamingUsers, setStreamingUsers] = useState([]);
@@ -469,6 +470,7 @@ export let CallProvider = ({ children }) => {
                 setIdentified(false);
                 micRefs.current.clear();
                 screenRefs.current.clear();
+                audioRefs.current.clear();
             },
             onMessage: handleWebSocketMessage,
             shouldReconnect: () => createCall && callId && callSecret,
@@ -650,6 +652,11 @@ export let CallProvider = ({ children }) => {
 
                 event.track.enabled = true;
                 stream.addTrack(event.track);
+                
+                let audioElement = audioRefs.current.get(id);
+                if (audioElement && stream instanceof MediaStream) {
+                    audioElement.srcObject = stream;
+                }
             }
         };
 
@@ -806,6 +813,7 @@ export let CallProvider = ({ children }) => {
             screenStreamRef.current?.getTracks().forEach(track => track.stop());
             micRefs.current.clear();
             screenRefs.current.clear();
+            audioRefs.current.clear();
             setConnectedUsers([]);
             setStreamingUsers([]);
             setCreateCall(false);
@@ -844,20 +852,24 @@ export let CallProvider = ({ children }) => {
             streamingUsers,
         }}>
             <div hidden>
-                {connected ? connectedUsers.map((id) => {
-                    let stream = micRefs.current.get(id);
-                    return (
-                        <div key={id}>
-                            {stream && (
-                                <audio
-                                    ref={el => micRefs.current.set(id, el)}
-                                    autoPlay
-                                    muted={deaf}
-                                />
-                            )}
-                        </div>
-                    )
-                }) : null}
+                {connected ? connectedUsers.map((id) => (
+                    <audio
+                        key={id}
+                        ref={el => {
+                            if (el) {
+                                audioRefs.current.set(id, el);
+                                // Only set srcObject if stream is a valid MediaStream
+                                if (stream instanceof MediaStream && stream.getTracks().length > 0) {
+                                    el.srcObject = stream;
+                                } else {
+                                    logFunction(`Invalid stream for user ${id}`, "warning", "Call WebSocket:");
+                                }
+                            }
+                        }}
+                        autoPlay
+                        muted={deaf}
+                    />
+                )) : null}
             </div>
             {children}
         </CallContext.Provider>
