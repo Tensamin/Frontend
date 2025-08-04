@@ -863,7 +863,6 @@ export let CallProvider = ({ children }) => {
                             }
                         }}
                         autoPlay
-                        muted={deaf}
                     />
                 )) : null}
             </div>
