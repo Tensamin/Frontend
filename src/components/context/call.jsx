@@ -81,7 +81,7 @@ export let CallProvider = ({ children }) => {
     let [connectedUsers, setConnectedUsers] = useState([]);
     let [streamingUsers, setStreamingUsers] = useState([]);
 
-    // Main
+    // Toggle Mute
     let toggleMute = useCallback(() => {
         setMute((prevMute) => {
             ls.set("call_mute", !prevMute);
@@ -105,128 +105,6 @@ export let CallProvider = ({ children }) => {
             startScreenStream();
         }
     }, [stream]);
-
-    // Start Screen Stream
-    let startScreenStream = useCallback(async (resolution = "1280x720", framerate = 30, audio = false) => {
-        try {
-            let stream = await navigator.mediaDevices.getDisplayMedia({
-                video: {
-                    frameRate: { ideal: framerate, max: framerate },
-                    width: { ideal: resolution.split("x")[0], max: resolution.split("x")[0] },
-                    height: { ideal: resolution.split("x")[1], max: resolution.split("x")[1] }
-                },
-                audio: audio
-            });
-
-            screenStreamRef.current = stream;
-            setStream(true);
-
-            async function addScreenShareToPeers() {
-                let addPromises = Array.from(screenRefs.current.entries()).map(async ([id, pc]) => {
-                    try {
-                        if (pc.connectionState !== 'connected' || pc.signalingState !== 'stable') {
-                            return;
-                        }
-
-                        let videoTrack = stream.getVideoTracks()[0];
-                        let audioTracks = stream.getAudioTracks();
-
-                        let transceivers = pc.getTransceivers();
-                        let videoTransceiver = transceivers.find(t =>
-                            t.receiver && t.receiver.track && t.receiver.track.kind === 'video'
-                        ) || transceivers.find(t => t.mid !== null && t.direction.includes('recv'));
-
-                        if (videoTransceiver && videoTrack) {
-                            await videoTransceiver.sender.replaceTrack(videoTrack);
-                            videoTransceiver.direction = 'sendrecv';
-                        }
-
-                        audioTracks.forEach(track => {
-                            pc.addTrack(track, stream);
-                        });
-                    } catch (err) {
-                        logFunction(`Failed to add screen tracks to peer ${id}: ${err.message}`, "error", "Voice WebSocket:");
-                    }
-                });
-
-                await Promise.allSettled(addPromises);
-            }; await addScreenShareToPeers();
-
-            stream.getVideoTracks()[0].addEventListener('ended', () => {
-                stopScreenStream();
-            });
-
-            logFunction("Screen share started", "success");
-            return stream;
-        } catch (err) {
-            setStream(false);
-            log(err.message, "error");
-        }
-    }, []);
-
-    // Stop Screen Stream
-    let stopScreenStream = useCallback(() => {
-        if (!screenStreamRef.current) {
-            return;
-        }
-
-        let tracksToRemove = screenStreamRef.current.getTracks().map(track => ({
-            id: track.id,
-            kind: track.kind
-        }));
-
-        screenStreamRef.current.getTracks().forEach(track => {
-            track.stop();
-        });
-
-        let removePromises = Array.from(screenRefs.current.entries()).map(async ([id, pc]) => {
-            try {
-                if (pc.connectionState === 'closed') return;
-
-                let transceivers = pc.getTransceivers();
-                let trackRemoved = false;
-
-                tracksToRemove.forEach(trackInfo => {
-                    if (trackInfo.kind === 'video') {
-                        let videoTransceiver = transceivers.find(t =>
-                            t.sender.track && t.sender.track.id === trackInfo.id
-                        );
-
-                        if (videoTransceiver) {
-                            try {
-                                videoTransceiver.sender.replaceTrack(null);
-                                videoTransceiver.direction = 'recvonly';
-                                trackRemoved = true;
-                            } catch (err) {
-                                logFunction(`Error resetting video transceiver for peer ${id}: ${err.message}`, "error", "Voice WebSocket:");
-                            }
-                        }
-                    } else {
-                        let senders = pc.getSenders();
-                        let sender = senders.find(s => s.track && s.track.id === trackInfo.id);
-                        if (sender) {
-                            try {
-                                pc.removeTrack(sender);
-                                trackRemoved = true;
-                            } catch (err) {
-                                logFunction(`Error removing ${trackInfo.kind} track from peer ${id}: ${err.message}`, "error", "Voice WebSocket:");
-                            }
-                        }
-                    }
-                });
-
-                if (trackRemoved && pc.signalingState === 'stable' && pc.connectionState === 'connected') {
-                    await pc.setLocalDescription(pc.localDescription);
-                }
-            } catch (err) {
-                logFunction(`Error stopping screen stream for peer ${id}: ${err.message}`, "error", "Voice WebSocket:");
-            }
-        });
-
-        Promise.allSettled(removePromises);
-        screenStreamRef.current = null;
-        setStream(false);
-    }, [])
 
     // Get Screen Stream
     let getScreenStream = useCallback((id) => {
@@ -324,6 +202,7 @@ export let CallProvider = ({ children }) => {
                 audioStreamsRefs.current.delete(message.data.user_id);
 
                 setConnectedUsers((prev) => prev.filter(userId => userId !== message.data.user_id));
+                setStreamingUsers((prev) => prev.filter(userId => userId !== message.data.user_id));
                 break;
 
             case "webrtc_sdp":
@@ -458,7 +337,7 @@ export let CallProvider = ({ children }) => {
                 reject(new Error(`Received unknown response type '${message.type}' for request ID '${message.id}'.`));
             }
         } else logFunction(message.log.message, "info");
-    }, []);
+    }, [callSecret, decrypt_base64_using_aes, encrypt_base64_using_aes, identified]);
 
     // Init WebSocket
     let { sendMessage, readyState } = useWebSocket(
@@ -469,6 +348,7 @@ export let CallProvider = ({ children }) => {
                 micStreamRef.current = await navigator.mediaDevices.getUserMedia({
                     audio: true,
                 });
+                setConnectedUsers([ownUuid]);
             },
             onClose: () => {
                 logFunction("Call disconnected", "info");
@@ -549,6 +429,155 @@ export let CallProvider = ({ children }) => {
         }
     }, [sendMessage, connected]);
 
+    // Start Screen Stream
+    let startScreenStream = useCallback(async (resolution = "1280x720", framerate = 30, audio = false) => {
+        try {
+            let stream = await navigator.mediaDevices.getDisplayMedia({
+                video: {
+                    frameRate: { ideal: framerate, max: framerate },
+                    width: { ideal: resolution.split("x")[0], max: resolution.split("x")[0] },
+                    height: { ideal: resolution.split("x")[1], max: resolution.split("x")[1] }
+                },
+                audio: audio
+            });
+
+            screenStreamRef.current = stream;
+            setStream(true);
+
+            // Add own user to streaming users when starting screen share
+            setStreamingUsers((prev) => {
+                if (!prev.includes(ownUuid)) {
+                    return [...prev, ownUuid];
+                }
+                return prev;
+            });
+
+            // Notify other users that we started streaming
+            send("start_stream", {
+                message: "User started screen sharing",
+                log_level: 0
+            }, {
+                user_id: ownUuid,
+            }, false);
+
+            async function addScreenShareToPeers() {
+                let addPromises = Array.from(screenRefs.current.entries()).map(async ([id, pc]) => {
+                    try {
+                        if (pc.connectionState !== 'connected' || pc.signalingState !== 'stable') {
+                            return;
+                        }
+
+                        let videoTrack = stream.getVideoTracks()[0];
+                        let audioTracks = stream.getAudioTracks();
+
+                        let transceivers = pc.getTransceivers();
+                        let videoTransceiver = transceivers.find(t =>
+                            t.receiver && t.receiver.track && t.receiver.track.kind === 'video'
+                        ) || transceivers.find(t => t.mid !== null && t.direction.includes('recv'));
+
+                        if (videoTransceiver && videoTrack) {
+                            await videoTransceiver.sender.replaceTrack(videoTrack);
+                            videoTransceiver.direction = 'sendrecv';
+                        }
+
+                        audioTracks.forEach(track => {
+                            pc.addTrack(track, stream);
+                        });
+                    } catch (err) {
+                        logFunction(`Failed to add screen tracks to peer ${id}: ${err.message}`, "error", "Voice WebSocket:");
+                    }
+                });
+
+                await Promise.allSettled(addPromises);
+            }; await addScreenShareToPeers();
+
+            stream.getVideoTracks()[0].addEventListener('ended', () => {
+                stopScreenStream();
+            });
+
+            logFunction("Screen share started", "success");
+            return stream;
+        } catch (err) {
+            setStream(false);
+            log(err.message, "error");
+        }
+    }, [ownUuid, send]);
+
+    // Stop Screen Stream
+    let stopScreenStream = useCallback(() => {
+        if (!screenStreamRef.current) {
+            return;
+        }
+
+        // Remove own user from streaming users when stopping screen share
+        setStreamingUsers((prev) => prev.filter(userId => userId !== ownUuid));
+
+        // Notify other users that we stopped streaming
+        send("end_stream", {
+            message: "User stopped screen sharing",
+            log_level: 0
+        }, {
+            user_id: ownUuid,
+        }, false);
+
+        let tracksToRemove = screenStreamRef.current.getTracks().map(track => ({
+            id: track.id,
+            kind: track.kind
+        }));
+
+        screenStreamRef.current.getTracks().forEach(track => {
+            track.stop();
+        });
+
+        let removePromises = Array.from(screenRefs.current.entries()).map(async ([id, pc]) => {
+            try {
+                if (pc.connectionState === 'closed') return;
+
+                let transceivers = pc.getTransceivers();
+                let trackRemoved = false;
+
+                tracksToRemove.forEach(trackInfo => {
+                    if (trackInfo.kind === 'video') {
+                        let videoTransceiver = transceivers.find(t =>
+                            t.sender.track && t.sender.track.id === trackInfo.id
+                        );
+
+                        if (videoTransceiver) {
+                            try {
+                                videoTransceiver.sender.replaceTrack(null);
+                                videoTransceiver.direction = 'recvonly';
+                                trackRemoved = true;
+                            } catch (err) {
+                                logFunction(`Error resetting video transceiver for peer ${id}: ${err.message}`, "error", "Voice WebSocket:");
+                            }
+                        }
+                    } else {
+                        let senders = pc.getSenders();
+                        let sender = senders.find(s => s.track && s.track.id === trackInfo.id);
+                        if (sender) {
+                            try {
+                                pc.removeTrack(sender);
+                                trackRemoved = true;
+                            } catch (err) {
+                                logFunction(`Error removing ${trackInfo.kind} track from peer ${id}: ${err.message}`, "error", "Voice WebSocket:");
+                            }
+                        }
+                    }
+                });
+
+                if (trackRemoved && pc.signalingState === 'stable' && pc.connectionState === 'connected') {
+                    await pc.setLocalDescription(pc.localDescription);
+                }
+            } catch (err) {
+                logFunction(`Error stopping screen stream for peer ${id}: ${err.message}`, "error", "Voice WebSocket:");
+            }
+        });
+
+        Promise.allSettled(removePromises);
+        screenStreamRef.current = null;
+        setStream(false);
+    }, [ownUuid, send])
+
     // Create P2P Connection
     let createP2PConnection = useCallback(async (id, isInitiator = false, isScreenShare = false) => {
         // Handle Existing Connections
@@ -627,12 +656,8 @@ export let CallProvider = ({ children }) => {
                     let stream = screenRefs.current.get(id);
                     if (stream) {
                         stream.removeTrack(event.track);
-                        await send("end_stream", {
-                            message: "Sending End Stream Status",
-                            log_level: 0
-                        }, {
-                            user_id: id,
-                        })
+                        // Remove the user from streaming users when their stream ends
+                        setStreamingUsers((prev) => prev.filter(userId => userId !== id));
                     };
                 } else {
                     let stream = audioStreamsRefs.current.get(id);
@@ -652,11 +677,13 @@ export let CallProvider = ({ children }) => {
 
                 event.track.enabled = true;
                 stream.addTrack(event.track);
-                send("start_stream", {
-                    message: "Sending Start Stream Status",
-                    log_level: 0
-                }, {
-                    user_id: id,
+
+                // Add the user to streaming users when we receive their screen stream
+                setStreamingUsers((prev) => {
+                    if (!prev.includes(id)) {
+                        return [...prev, id];
+                    }
+                    return prev;
                 });
             } else {
                 let stream = audioStreamsRefs.current.get(id);
@@ -667,7 +694,7 @@ export let CallProvider = ({ children }) => {
 
                 event.track.enabled = true;
                 stream.addTrack(event.track);
-                
+
                 let audioElement = audioRefs.current.get(id);
                 if (audioElement && stream instanceof MediaStream) {
                     audioElement.srcObject = stream;
@@ -682,7 +709,7 @@ export let CallProvider = ({ children }) => {
 
         if (isInitiator) {
             let negotiationInProgress = false;
-            
+
             pc.onnegotiationneeded = async () => {
                 if (pc.signalingState !== "stable" || negotiationInProgress) {
                     return;
@@ -741,7 +768,7 @@ export let CallProvider = ({ children }) => {
                     }
                     return prev;
                 });
-                
+
                 // If this is a mic connection and we already have an audio stream, 
                 // we need to ensure the audio element gets the stream when it's created
                 if (!isScreenShare) {
@@ -760,7 +787,7 @@ export let CallProvider = ({ children }) => {
         };
 
         return pc;
-    }, [send, webrtc_servers, encrypt_base64_using_aes, callSecret]);
+    }, [send, webrtc_servers, encrypt_base64_using_aes, callSecret, setStreamingUsers]);
 
     // Update Connected State
     useEffect(() => {

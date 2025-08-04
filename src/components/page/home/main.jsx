@@ -206,6 +206,18 @@ export function Main() {
                     <p>Connected: {JSON.stringify(connectedUsers)}</p>
                     <p>Streaming: {JSON.stringify(streamingUsers)}</p>
 
+                    {connectedUsers.map((id) => (
+                        <div key={id}>
+                            <Button
+                                disabled={!streamingUsers.includes(id) || stream}
+                                onClick={() => {
+                                    createP2PConnection(id, true, true);
+                                }}
+                            >{id}</Button>
+                        </div>
+                    )
+                    )}
+
                     {/* Calling */}
                 </CardContent>
             </Card>
