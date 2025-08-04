@@ -76,6 +76,7 @@ export let CallProvider = ({ children }) => {
     let micRefs = useRef(new Map());
     let screenRefs = useRef(new Map());
     let audioRefs = useRef(new Map()); // Separate ref for audio elements
+    let audioStreamsRefs = useRef(new Map()); // Separate ref for audio streams
 
     let [connectedUsers, setConnectedUsers] = useState([]);
     let [streamingUsers, setStreamingUsers] = useState([]);
@@ -309,6 +310,10 @@ export let CallProvider = ({ children }) => {
                     micRefs.current.delete(message.data.user_id);
                 }
 
+                // Clean up audio references
+                audioRefs.current.delete(message.data.user_id);
+                audioStreamsRefs.current.delete(message.data.user_id);
+
                 setConnectedUsers((prev) => prev.filter(userId => userId !== message.data.user_id));
                 break;
 
@@ -471,6 +476,7 @@ export let CallProvider = ({ children }) => {
                 micRefs.current.clear();
                 screenRefs.current.clear();
                 audioRefs.current.clear();
+                audioStreamsRefs.current.clear();
             },
             onMessage: handleWebSocketMessage,
             shouldReconnect: () => createCall && callId && callSecret,
@@ -620,7 +626,7 @@ export let CallProvider = ({ children }) => {
                         })
                     };
                 } else {
-                    let stream = micRefs.current.get(id);
+                    let stream = audioStreamsRefs.current.get(id);
                     if (stream) {
                         stream.removeTrack(event.track);
                     };
@@ -644,18 +650,23 @@ export let CallProvider = ({ children }) => {
                     user_id: id,
                 });
             } else {
-                let stream = micRefs.current.get(id);
+                let stream = audioStreamsRefs.current.get(id);
                 if (!stream) {
                     stream = new MediaStream();
-                    micRefs.current.set(id, stream);
+                    audioStreamsRefs.current.set(id, stream);
                 }
 
                 event.track.enabled = true;
                 stream.addTrack(event.track);
                 
                 let audioElement = audioRefs.current.get(id);
-                if (audioElement) {
+                if (audioElement && stream instanceof MediaStream) {
                     audioElement.srcObject = stream;
+                    logFunction(`Set audio stream for user ${id} (immediate)`, "debug");
+                } else if (audioElement && stream) {
+                    logFunction(`Invalid stream type for user ${id}: ${typeof stream}`, "warning");
+                } else {
+                    logFunction(`Audio element not yet available for user ${id}, will be set when element is created`, "debug");
                 }
             }
         };
@@ -710,6 +721,8 @@ export let CallProvider = ({ children }) => {
                     screenRefs.current.delete(id);
                 } else {
                     micRefs.current.delete(id);
+                    audioRefs.current.delete(id);
+                    audioStreamsRefs.current.delete(id);
                 }
             } else if (pc.connectionState === "connected") {
                 logFunction(`Connected to ${id}`, "success");
@@ -719,6 +732,21 @@ export let CallProvider = ({ children }) => {
                     }
                     return prev;
                 });
+                
+                // If this is a mic connection and we already have an audio stream, 
+                // we need to ensure the audio element gets the stream when it's created
+                if (!isScreenShare) {
+                    setTimeout(() => {
+                        let audioElement = audioRefs.current.get(id);
+                        let stream = audioStreamsRefs.current.get(id);
+                        if (audioElement && stream && stream instanceof MediaStream) {
+                            audioElement.srcObject = stream;
+                            logFunction(`Set audio stream for user ${id}`, "debug");
+                        } else if (audioElement && stream) {
+                            logFunction(`Invalid stream type for user ${id}: ${typeof stream}`, "warning");
+                        }
+                    }, 100);
+                }
             }
         };
 
@@ -814,6 +842,7 @@ export let CallProvider = ({ children }) => {
             micRefs.current.clear();
             screenRefs.current.clear();
             audioRefs.current.clear();
+            audioStreamsRefs.current.clear();
             setConnectedUsers([]);
             setStreamingUsers([]);
             setCreateCall(false);
@@ -858,11 +887,21 @@ export let CallProvider = ({ children }) => {
                         ref={(el) => {
                             if (el) {
                                 audioRefs.current.set(id, el);
+                                // Set the stream if it already exists
+                                let stream = audioStreamsRefs.current.get(id);
+                                if (stream && stream instanceof MediaStream) {
+                                    el.srcObject = stream;
+                                    logFunction(`Set existing audio stream for user ${id}`, "debug");
+                                } else if (stream) {
+                                    logFunction(`Invalid stream type for user ${id}: ${typeof stream}`, "warning");
+                                }
                             } else {
                                 audioRefs.current.delete(id);
                             }
                         }}
                         autoPlay
+                        muted={deaf}
+                        volume={1.0}
                     />
                 )) : null}
             </div>
