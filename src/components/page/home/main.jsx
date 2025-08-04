@@ -38,7 +38,7 @@ export function Main() {
     let { ownUuid } = useUsersContext();
     let { send } = useWebSocketContext();
     let { encrypt_base64_using_pubkey } = useEncryptionContext();
-    let { callId, setCallId, callSecret, setCallSecret, setCreateCall, clientPing, connected, mute, toggleMute, deaf, toggleDeaf, stream, startScreenStream, stopScreenStream, getScreenStream, getAllScreenStreams, connectedUsers, streamingUsers, toggleStream } = useCallContext();
+    let { createP2PConnection, callId, setCallId, callSecret, setCallSecret, setCreateCall, clientPing, connected, mute, toggleMute, deaf, toggleDeaf, stream, startScreenStream, stopScreenStream, getScreenStream, connectedUsers, streamingUsers, toggleStream } = useCallContext();
     function handleInputChange(e) {
         setNewChatUUID(e)
     }
@@ -202,7 +202,6 @@ export function Main() {
                     <p>Mute: {mute ? "true" : "false"}</p>
                     <p>Deaf: {deaf ? "true" : "false"}</p>
                     <p>Active Stream: {stream ? "true" : "false"}</p>
-                    <p>All Streams: {JSON.stringify(getAllScreenStreams())}</p>
                     <p>Connected: {JSON.stringify(connectedUsers)}</p>
                     <p>Streaming: {JSON.stringify(streamingUsers)}</p>
 
@@ -210,8 +209,9 @@ export function Main() {
                         <div key={id}>
                             <Button
                                 disabled={!streamingUsers.includes(id) || stream}
-                                onClick={() => {
-                                    createP2PConnection(id, true, true);
+                                onClick={async () => {
+                                    console.clear();
+                                    await createP2PConnection(id, true, true);
                                 }}
                             >{id}</Button>
                         </div>

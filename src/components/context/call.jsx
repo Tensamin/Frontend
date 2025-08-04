@@ -114,63 +114,6 @@ export let CallProvider = ({ children }) => {
         return screenRefs.current.get(id);
     }, []);
 
-    // Get All Screen Streams
-    let getAllScreenStreams = useCallback(() => {
-        let streams = [];
-
-        if (screenStreamRef.current && stream) {
-            let localVideoTracks = screenStreamRef.current.getVideoTracks();
-            let localHasActiveTracks = localVideoTracks.some(
-                track => track.enabled && track.readyState === 'live'
-            );
-
-            if (localHasActiveTracks) {
-                streams.push({
-                    my_stream: true,
-                    stream: screenStreamRef.current
-                });
-            }
-        }
-
-        screenRefs.current.forEach((stream, id) => {
-            let videoTracks = stream.getVideoTracks();
-            if (videoTracks && videoTracks.length > 0) {
-                let hasActiveTracks = videoTracks.some(
-                    track => track.enabled && track.readyState === 'live'
-                );
-
-                if (hasActiveTracks) {
-                    streams.push({
-                        type: 'remote',
-                        peerId: id,
-                        stream: stream
-                    });
-                } else {
-                    videoTracks.forEach(track => {
-                        if (track.readyState === 'ended' || !track.enabled) {
-                            try {
-                                stream.removeTrack(track);
-                            } catch (err) {
-                                // Ignore removal errors
-                            }
-                        }
-                    });
-
-                    if (stream.getVideoTracks().length > 0) {
-                        streams.push({
-                            type: 'remote',
-                            peerId: id,
-                            endingSoon: true,
-                            stream: stream
-                        });
-                    }
-                }
-            }
-        });
-
-        return streams;
-    }, [])
-
     // Handle WebSocket Messages
     let handleWebSocketMessage = useCallback(async (event) => {
         let message = JSON.parse(event.data);
@@ -597,24 +540,20 @@ export let CallProvider = ({ children }) => {
         let pc = new RTCPeerConnection(webrtc_servers);
 
         if (isScreenShare) {
-            logFunction(`Creating new screen share connection for ${id}`, "debug", "Voice WebSocket:");
             screenRefs.current.set(id, pc);
         } else {
-            logFunction(`Creating new mic connection for ${id}`, "debug", "Voice WebSocket:");
             micRefs.current.set(id, pc);
         }
 
         // Add Own Mic Stream
         if (micStreamRef.current && !isScreenShare) {
-            logFunction(`Adding own mic stream for ${id}`, "debug", "Voice WebSocket:");
             micStreamRef.current.getTracks().forEach(track => {
                 pc.addTrack(track, micStreamRef.current);
             });
         }
 
         // Add Own Screen Stream
-        if (screenStreamRef.current && isScreenShare) {
-            logFunction(`Adding own screen stream for ${id}`, "debug", "Voice WebSocket:");
+        if (screenStreamRef.current && isScreenShare && !isInitiator) {
             let videoTransceiver = pc.addTransceiver('video', {
                 direction: 'recvonly'
             });
@@ -634,7 +573,6 @@ export let CallProvider = ({ children }) => {
         // ICE Candidates
         pc.onicecandidate = async (event) => {
             if (event.candidate) {
-                logFunction("Sending ICE Candidate", "debug", "Voice WebSocket:");
                 send("webrtc_ice", {
                     message: "Sending ICE Candidate",
                     log_level: 0
@@ -651,12 +589,14 @@ export let CallProvider = ({ children }) => {
 
         // Track Events
         pc.ontrack = (event) => {
+            console.log("Track event received:", event.track);
+            console.log("Track stream received:", event.streams[0]);
+
             event.track.onended = async () => {
                 if (isScreenShare) {
                     let stream = screenRefs.current.get(id);
                     if (stream) {
                         stream.removeTrack(event.track);
-                        // Remove the user from streaming users when their stream ends
                         setStreamingUsers((prev) => prev.filter(userId => userId !== id));
                     };
                 } else {
@@ -676,9 +616,9 @@ export let CallProvider = ({ children }) => {
                 }
 
                 event.track.enabled = true;
+                console.log(event);
                 stream.addTrack(event.track);
 
-                // Add the user to streaming users when we receive their screen stream
                 setStreamingUsers((prev) => {
                     if (!prev.includes(id)) {
                         return [...prev, id];
@@ -715,7 +655,6 @@ export let CallProvider = ({ children }) => {
                     return;
                 }
 
-                // Check if we already have a remote description (meaning negotiation already happened)
                 if (pc.remoteDescription) {
                     return;
                 }
@@ -912,7 +851,7 @@ export let CallProvider = ({ children }) => {
             startScreenStream,
             stopScreenStream,
             getScreenStream,
-            getAllScreenStreams,
+            createP2PConnection,
 
             connectedUsers,
             streamingUsers,
@@ -928,7 +867,6 @@ export let CallProvider = ({ children }) => {
                                 let stream = audioStreamsRefs.current.get(id);
                                 if (stream && stream instanceof MediaStream) {
                                     el.srcObject = stream;
-                                    logFunction(`Set existing audio stream for user ${id}`, "debug");
                                 } else if (stream) {
                                     logFunction(`Invalid stream type for user ${id}: ${typeof stream}`, "warning");
                                 }
