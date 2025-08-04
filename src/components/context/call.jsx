@@ -288,7 +288,7 @@ export let CallProvider = ({ children }) => {
     // Handle WebSocket Messages
     let handleWebSocketMessage = useCallback(async (event) => {
         let message = JSON.parse(event.data);
-        
+
         if (message.type !== "pong") {
             logFunction(message, "debug", "Call WebSocket (Received):")
         }

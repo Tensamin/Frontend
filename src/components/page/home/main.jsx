@@ -38,11 +38,13 @@ export function Main() {
     let { ownUuid } = useUsersContext();
     let { send } = useWebSocketContext();
     let { encrypt_base64_using_pubkey } = useEncryptionContext();
-    let { setCallId, setCallSecret, setCreateCall } = useCallContext();
+    let { setCallId, setCallSecret, setCreateCall, getAllScreenStreams } = useCallContext();
 
     function handleInputChange(e) {
         setNewChatUUID(e)
     }
+
+    console.log(getAllScreenStreams())
 
     async function handleSubmit() {
         try {
@@ -144,8 +146,8 @@ export function Main() {
                 <CardContent className="h-full w-full">
                     <p>Homepage</p>
                     <Button onClick={() => {
-                        setCallId(ownUuid);
-                        setCallSecret(ownUuid);
+                        setCallId("c118752d-2fa5-4b3d-903f-5b4fd4004887");
+                        setCallSecret("c118752d-2fa5-4b3d-903f-5b4fd4004887");
                         setCreateCall(true);
                     }}>
                         Temp Start Voice Call
