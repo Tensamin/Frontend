@@ -654,9 +654,7 @@ export let CallProvider = ({ children }) => {
                 stream.addTrack(event.track);
                 
                 let audioElement = audioRefs.current.get(id);
-                if (audioElement && stream instanceof MediaStream) {
-                    audioElement.srcObject = stream;
-                }
+                audioElement.srcObject = event.track;
             }
         };
 
@@ -855,17 +853,7 @@ export let CallProvider = ({ children }) => {
                 {connected ? connectedUsers.map((id) => (
                     <audio
                         key={id}
-                        ref={el => {
-                            if (el) {
-                                audioRefs.current.set(id, el);
-                                // Only set srcObject if stream is a valid MediaStream
-                                if (stream instanceof MediaStream && stream.getTracks().length > 0) {
-                                    el.srcObject = stream;
-                                } else {
-                                    logFunction(`Invalid stream for user ${id}`, "warning", "Call WebSocket:");
-                                }
-                            }
-                        }}
+                        ref={audioRefs.current.get(id)}
                         autoPlay
                         muted={deaf}
                     />
