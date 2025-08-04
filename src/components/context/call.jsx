@@ -65,8 +65,8 @@ export let CallProvider = ({ children }) => {
     let [callSecret, setCallSecret] = useState(null);
     let [identified, setIdentified] = useState(false);
 
-    let [mute, setMute] = useState(ls.get("call_mute") || false);
-    let [deaf, setDeaf] = useState(ls.get("call_deaf") || false);
+    let [mute, setMute] = useState(ls.get("call_mute") === "true" || false);
+    let [deaf, setDeaf] = useState(ls.get("call_deaf") === "true" || false);
     let [stream, setStream] = useState(false);
 
     // WebRTC
@@ -654,33 +654,46 @@ export let CallProvider = ({ children }) => {
         };
 
         if (isInitiator) {
+            let negotiationInProgress = false;
+            
             pc.onnegotiationneeded = async () => {
-                if (pc.signalingState !== "stable") {
+                if (pc.signalingState !== "stable" || negotiationInProgress) {
                     return;
                 }
 
-                let offer = await pc.createOffer({
-                    offerToReceiveAudio: !isScreenShare,
-                    offerToReceiveVideo: isScreenShare,
-                });
-
-                if (pc.signalingState !== "stable") {
+                // Check if we already have a remote description (meaning negotiation already happened)
+                if (pc.remoteDescription) {
                     return;
                 }
 
-                await pc.setLocalDescription(offer);
+                negotiationInProgress = true;
 
-                send("webrtc_sdp", {
-                    message: "Sending SDP Offer",
-                    log_level: 0
-                }, {
-                    payload: await encrypt_base64_using_aes(
-                        btoa(JSON.stringify(offer)),
-                        callSecret,
-                    ),
-                    screen_share: isScreenShare,
-                    receiver_id: id,
-                }, false);
+                try {
+                    let offer = await pc.createOffer({
+                        offerToReceiveAudio: !isScreenShare,
+                        offerToReceiveVideo: isScreenShare,
+                    });
+
+                    if (pc.signalingState !== "stable") {
+                        return;
+                    }
+
+                    await pc.setLocalDescription(offer);
+
+                    send("webrtc_sdp", {
+                        message: "Sending SDP Offer",
+                        log_level: 0
+                    }, {
+                        payload: await encrypt_base64_using_aes(
+                            btoa(JSON.stringify(offer)),
+                            callSecret,
+                        ),
+                        screen_share: isScreenShare,
+                        receiver_id: id,
+                    }, false);
+                } finally {
+                    negotiationInProgress = false;
+                }
             }
         }
 
@@ -693,6 +706,12 @@ export let CallProvider = ({ children }) => {
                 }
             } else if (pc.connectionState === "connected") {
                 logFunction(`Connected to ${id}`, "success");
+                setConnectedUsers((prev) => {
+                    if (!prev.includes(id)) {
+                        return [...prev, id];
+                    }
+                    return prev;
+                });
             }
         };
 
