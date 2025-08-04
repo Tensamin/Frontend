@@ -43,8 +43,6 @@ export function Main() {
         setNewChatUUID(e)
     }
 
-    console.log(getAllScreenStreams())
-
     async function handleSubmit() {
         try {
             if (isUuid(newChatUUID)) {

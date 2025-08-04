@@ -13,7 +13,7 @@ import useWebSocket, { ReadyState } from "react-use-websocket";
 import { v7 } from "uuid"
 
 // Lib Imports
-import { log as logFunction, sha256 } from "@/lib/utils";
+import { log, log as logFunction, sha256 } from "@/lib/utils";
 import { endpoint } from "@/lib/endpoints";
 import ls from "@/lib/localStorageManager";
 
@@ -75,9 +75,6 @@ export let CallProvider = ({ children }) => {
 
     let micRefs = useRef(new Map());
     let screenRefs = useRef(new Map());
-
-    let [micPeers, setMicPeers] = useState([]);
-    let [screenPeers, setScreenPeers] = useState([]);
 
     let [connectedUsers, setConnectedUsers] = useState([]);
     let [streamingUsers, setStreamingUsers] = useState([]);
@@ -354,22 +351,22 @@ export let CallProvider = ({ children }) => {
 
                         await sdp_pc.setLocalDescription(answer);
 
-                        send({
-                            type: "webrtc_sdp",
-                            data: {
-                                payload: await encrypt_base64_using_aes(
-                                    btoa(JSON.stringify(answer)),
-                                    callSecret,
-                                ),
-                                screen_share: sdp_isScreenShare,
-                                receiver_id: sdp_sender,
-                            },
-                        }).then(() => {
-                            log(
-                                `Answer sent to ${sdp_sender}`,
-                                "success",
-                            );
-                        });
+                        send("webrtc_sdp", {
+                            message: "Sending SDP Answer",
+                            log_level: 0,
+                        }, {
+                            payload: await encrypt_base64_using_aes(
+                                btoa(JSON.stringify(answer)),
+                                callSecret,
+                            ),
+                            screen_share: sdp_isScreenShare,
+                            receiver_id: sdp_sender,
+                        }, false)
+
+                        log(
+                            `Answer sent to ${sdp_sender}`,
+                            "success",
+                        );
                     }
                 } catch (error) {
                     log(
@@ -470,8 +467,6 @@ export let CallProvider = ({ children }) => {
 
                 setConnected(false);
                 setIdentified(false);
-                setMicPeers([]);
-                setScreenPeers([]);
                 micRefs.current.clear();
                 screenRefs.current.clear();
             },
@@ -484,13 +479,43 @@ export let CallProvider = ({ children }) => {
     );
 
     // Send Function
-    let send = useCallback(async (requestType, log, data = {}) => {
+    let send = useCallback(async (requestType, log, data = {}, awaitResponse = true) => {
         if (readyState !== ReadyState.CLOSED && readyState !== ReadyState.CLOSING) {
-            return new Promise((resolve, reject) => {
-                let id = v7();
+            if (awaitResponse) {
+                return new Promise((resolve, reject) => {
+                    let id = v7();
 
+                    let messageToSend = {
+                        id,
+                        type: requestType,
+                        log,
+                        data,
+                    };
+
+                    if (messageToSend.type !== "ping") {
+                        logFunction(messageToSend, "debug", "Call WebSocket (Sent):")
+                    }
+
+                    let timeoutId = setTimeout(() => {
+                        pendingRequests.current.delete(id);
+                        let timeoutError = new Error(`Call WebSocket request timed out for ID: ${id} (Type: ${requestType}) after ${responseTimeout}ms.`);
+                        reject(timeoutError);
+                    }, responseTimeout);
+
+                    pendingRequests.current.set(id, { resolve, reject, timeoutId });
+
+                    try {
+                        sendMessage(JSON.stringify(messageToSend));
+                    } catch (e) {
+                        clearTimeout(timeoutId);
+                        pendingRequests.current.delete(id);
+                        let sendError = new Error(`Failed to send Call WebSocket message: ${e.message}`);
+                        logFunction(sendError, 'error');
+                        reject(sendError);
+                    }
+                });
+            } else {
                 let messageToSend = {
-                    id,
                     type: requestType,
                     log,
                     data,
@@ -500,61 +525,56 @@ export let CallProvider = ({ children }) => {
                     logFunction(messageToSend, "debug", "Call WebSocket (Sent):")
                 }
 
-                let timeoutId = setTimeout(() => {
-                    pendingRequests.current.delete(id);
-                    let timeoutError = new Error(`Call WebSocket request timed out for ID: ${id} (Type: ${requestType}) after ${responseTimeout}ms.`);
-                    reject(timeoutError);
-                }, responseTimeout);
-
-                pendingRequests.current.set(id, { resolve, reject, timeoutId });
-
-                try {
-                    sendMessage(JSON.stringify(messageToSend));
-                } catch (e) {
-                    clearTimeout(timeoutId);
-                    pendingRequests.current.delete(id);
-                    let sendError = new Error(`Failed to send Call WebSocket message: ${e.message}`);
-                    logFunction(sendError, 'error');
-                    reject(sendError);
-                }
-            });
+                sendMessage(JSON.stringify(messageToSend));
+            }
+        } else {
+            logFunction("Call WebSocket not connected", "warning", "Voice WebSocket:");
         }
-    }, [sendMessage, readyState]);
+    }, [sendMessage, connected]);
 
     // Create P2P Connection
     let createP2PConnection = useCallback(async (id, isInitiator = false, isScreenShare = false) => {
         // Handle Existing Connections
-        if (micPeers.current.has(id)) {
-            return micPeers.current.get(id);
-        }
-
-        if (screenPeers.current.has(id)) {
-            return screenPeers.current.get(id);
+        if (isScreenShare) {
+            if (screenRefs.current.has(id)) {
+                logFunction("Reusing existing screen share connection", "debug", "Voice WebSocket:");
+                return screenRefs.current.get(id);
+            }
+        } else {
+            if (micRefs.current.has(id)) {
+                logFunction("Reusing existing mic connection", "debug", "Voice WebSocket:");
+                return micRefs.current.get(id);
+            }
         }
 
         // Create New Peer Connection
         let pc = new RTCPeerConnection(webrtc_servers);
 
         if (isScreenShare) {
-            screenPeers.current.set(id, pc);
+            logFunction(`Creating new screen share connection for ${id}`, "debug", "Voice WebSocket:");
+            screenRefs.current.set(id, pc);
         } else {
-            micPeers.current.set(id, pc);
+            logFunction(`Creating new mic connection for ${id}`, "debug", "Voice WebSocket:");
+            micRefs.current.set(id, pc);
         }
 
-        // Add Mic Stream
+        // Add Own Mic Stream
         if (micStreamRef.current && !isScreenShare) {
+            logFunction(`Adding own mic stream for ${id}`, "debug", "Voice WebSocket:");
             micStreamRef.current.getTracks().forEach(track => {
                 pc.addTrack(track, micStreamRef.current);
             });
         }
 
-        // Add Screen Stream
-        let videoTransceiver = pc.addTransceiver('video', {
-            direction: 'recvonly'
-        });
-
+        // Add Own Screen Stream
         if (screenStreamRef.current && isScreenShare) {
+            logFunction(`Adding own screen stream for ${id}`, "debug", "Voice WebSocket:");
+            let videoTransceiver = pc.addTransceiver('video', {
+                direction: 'recvonly'
+            });
+
             let videoTrack = screenStreamRef.current.getVideoTracks()[0];
+
             if (videoTrack) {
                 await videoTransceiver.sender.replaceTrack(videoTrack);
                 videoTransceiver.direction = 'sendrecv';
@@ -568,7 +588,8 @@ export let CallProvider = ({ children }) => {
         // ICE Candidates
         pc.onicecandidate = async (event) => {
             if (event.candidate) {
-                await send("webrtc_ice", {
+                logFunction("Sending ICE Candidate", "debug", "Voice WebSocket:");
+                send("webrtc_ice", {
                     message: "Sending ICE Candidate",
                     log_level: 0
                 }, {
@@ -578,7 +599,7 @@ export let CallProvider = ({ children }) => {
                     ),
                     screen_share: isScreenShare,
                     receiver_id: id,
-                })
+                }, false);
             }
         };
 
@@ -630,17 +651,6 @@ export let CallProvider = ({ children }) => {
                 event.track.enabled = true;
                 stream.addTrack(event.track);
             }
-
-            // Update Peers
-            if (isScreenShare) {
-                setScreenPeers((prev) =>
-                    Array.from(new Set([...prev, id])),
-                );
-            } else {
-                setMicPeers((prev) =>
-                    Array.from(new Set([...prev, id])),
-                );
-            }
         };
 
         if (isInitiator) {
@@ -660,7 +670,7 @@ export let CallProvider = ({ children }) => {
 
                 await pc.setLocalDescription(offer);
 
-                await send("webrtc_sdp", {
+                send("webrtc_sdp", {
                     message: "Sending SDP Offer",
                     log_level: 0
                 }, {
@@ -670,17 +680,15 @@ export let CallProvider = ({ children }) => {
                     ),
                     screen_share: isScreenShare,
                     receiver_id: id,
-                });
+                }, false);
             }
         }
 
         pc.onconnectionstatechange = () => {
             if (pc.connectionState === "disconnected" || pc.connectionState === "failed") {
                 if (isScreenShare) {
-                    setScreenPeers((prev) => prev.filter(peerId => peerId !== id));
                     screenRefs.current.delete(id);
                 } else {
-                    setMicPeers((prev) => prev.filter(peerId => peerId !== id));
                     micRefs.current.delete(id);
                 }
             } else if (pc.connectionState === "connected") {
@@ -702,8 +710,7 @@ export let CallProvider = ({ children }) => {
         if (connected) {
             interval = setInterval(async () => {
                 let time = Date.now()
-                await send(
-                    "ping",
+                await send("ping",
                     {
                         message: "Ping from Client",
                         log_level: -1
@@ -780,8 +787,6 @@ export let CallProvider = ({ children }) => {
             screenStreamRef.current?.getTracks().forEach(track => track.stop());
             micRefs.current.clear();
             screenRefs.current.clear();
-            setMicPeers([]);
-            setScreenPeers([]);
             setConnectedUsers([]);
             setStreamingUsers([]);
             setCreateCall(false);
