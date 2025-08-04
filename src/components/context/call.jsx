@@ -654,7 +654,9 @@ export let CallProvider = ({ children }) => {
                 stream.addTrack(event.track);
                 
                 let audioElement = audioRefs.current.get(id);
-                audioElement.srcObject = event.track;
+                if (audioElement) {
+                    audioElement.srcObject = stream;
+                }
             }
         };
 
@@ -853,7 +855,13 @@ export let CallProvider = ({ children }) => {
                 {connected ? connectedUsers.map((id) => (
                     <audio
                         key={id}
-                        ref={audioRefs.current.get(id)}
+                        ref={(el) => {
+                            if (el) {
+                                audioRefs.current.set(id, el);
+                            } else {
+                                audioRefs.current.delete(id);
+                            }
+                        }}
                         autoPlay
                         muted={deaf}
                     />
