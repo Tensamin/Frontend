@@ -265,6 +265,16 @@ export let CallProvider = ({ children }) => {
                 setStreamingUsers((prev) => prev.filter(userId => userId !== message.data.user_id));
                 break;
 
+            case "watch_stream":
+                if (message.data.want_to_watch) {
+                    logFunction("User wants to watch you", "info")
+                    createP2PConnection(message.data.sender_id, true, true);
+                } else {
+                    logFunction("User allowed you to watch them", "info")
+                    createP2PConnection(message.data.sender_id, false, true);
+                }
+                break;
+
             default:
                 break;
         }
@@ -288,6 +298,7 @@ export let CallProvider = ({ children }) => {
         {
             onOpen: async () => {
                 logFunction("Call connected", "info");
+                if (mute) toggleMute();
                 micStreamRef.current = await navigator.mediaDevices.getUserMedia({
                     audio: true,
                 });
@@ -650,6 +661,16 @@ export let CallProvider = ({ children }) => {
         if (isInitiator) {
             let negotiationInProgress = false;
 
+            if (isScreenShare) {
+                send("watch_stream", {
+                    message: `${id} wants to watch ${ownUuid}`,
+                    log_level: 0,
+                }, {
+                    want_to_watch: false,
+                    receiver_id: id,
+                }, false)
+            }
+
             pc.onnegotiationneeded = async () => {
                 if (pc.signalingState !== "stable" || negotiationInProgress) {
                     return;
@@ -835,6 +856,7 @@ export let CallProvider = ({ children }) => {
             setCallId,
             callSecret,
             setCallSecret,
+            voiceSend: send,
 
             clientPing,
             connected,

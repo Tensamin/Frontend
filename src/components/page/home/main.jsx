@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { VideoStream } from "@/components/page/voice/parts"
 
 // Main
 export function Main() {
@@ -38,7 +39,7 @@ export function Main() {
     let { ownUuid } = useUsersContext();
     let { send } = useWebSocketContext();
     let { encrypt_base64_using_pubkey } = useEncryptionContext();
-    let { createP2PConnection, callId, setCallId, callSecret, setCallSecret, setCreateCall, clientPing, connected, mute, toggleMute, deaf, toggleDeaf, stream, startScreenStream, stopScreenStream, getScreenStream, connectedUsers, streamingUsers, toggleStream } = useCallContext();
+    let { voiceSend, createP2PConnection, callId, setCallId, callSecret, setCallSecret, setCreateCall, clientPing, connected, mute, toggleMute, deaf, toggleDeaf, stream, startScreenStream, stopScreenStream, getScreenStream, connectedUsers, streamingUsers, toggleStream } = useCallContext();
     function handleInputChange(e) {
         setNewChatUUID(e)
     }
@@ -209,14 +210,21 @@ export function Main() {
                         <div key={id}>
                             <Button
                                 disabled={!streamingUsers.includes(id) || stream}
-                                onClick={async () => {
-                                    console.clear();
-                                    await createP2PConnection(id, true, true);
+                                onClick={() => {
+                                    voiceSend("watch_stream", {
+                                        message: `${ownUuid} wants to watch ${id}`,
+                                        log_level: 0,
+                                    }, {
+                                        want_to_watch: true,
+                                        receiver_id: id,
+                                    }, false);
                                 }}
-                            >{id}</Button>
+                            >
+                                {id}
+                                <VideoStream peerConnection={getScreenStream(id)}/>
+                            </Button>
                         </div>
-                    )
-                    )}
+                    ))}
 
                     {/* Calling */}
                 </CardContent>

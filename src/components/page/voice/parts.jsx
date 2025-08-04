@@ -1,5 +1,5 @@
 // Package Imports
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import Image from "next/image"
 import * as Icon from "lucide-react"
 
@@ -105,186 +105,46 @@ export function GettingCalled() {
     )
 }
 
-export function RemoteStreamVideo({ stream, className }) {
-    const canvasRef = useRef(null);
-    const videoRef = useRef(null);
-    const animationFrameIdRef = useRef(null);
-    const lastFrameTimeRef = useRef(0);
-    const noUpdateCountRef = useRef(0);
-    const streamIdRef = useRef(stream?.id);
-    const isInitializedRef = useRef(false);
+export function VideoStream({ peerConnection }) {
+  let videoRef = useRef(null);
+  let [mediaStream, setMediaStream] = useState(null);
 
-    // Memoized track validation
-    const trackInfo = useMemo(() => {
-        if (!stream) return { hasActive: false, trackIds: '', videoTrackCount: 0 };
+  useEffect(() => {
+    if (!peerConnection) {
+      return;
+    }
 
-        const tracks = stream.getTracks();
-        const videoTracks = tracks.filter(t => t.kind === 'video');
-        const hasActive = videoTracks.some(track =>
-            track.enabled && track.readyState === 'live' && !track.muted
-        );
-        const trackIds = tracks.map(t => t.id).sort().join(',');
+    let handleTrack = (event) => {
+      console.log(event.streams)
+      console.log("Track received:", event.track);
+      setMediaStream(event.streams[0]);
+    };
 
-        return { hasActive, trackIds, videoTrackCount: videoTracks.length };
-    }, [stream]);
+    peerConnection.addEventListener("track", handleTrack);
 
-    // Optimized rendering function with throttling
-    const renderFrame = useCallback(() => {
-        if (!canvasRef.current || !videoRef.current) return;
+    return () => {
+      peerConnection.removeEventListener("track", handleTrack);
+    };
+  }, [peerConnection]);
 
-        const videoElement = videoRef.current;
-        const canvasElement = canvasRef.current;
-        const context = canvasElement.getContext("2d", { alpha: false });
+  useEffect(() => {
+    if (videoRef.current && mediaStream) {
+      console.log("Attaching stream to video element");
+      videoRef.current.srcObject = mediaStream;
+    }
+  }, [mediaStream]);
 
-        // Only render if video is ready and has content
-        if (videoElement.readyState >= 3 && videoElement.videoWidth > 0) {
-            // Check for new frame by comparing currentTime
-            const currentTime = videoElement.currentTime;
-            if (currentTime > 0 && currentTime !== lastFrameTimeRef.current) {
-                // Reset stall counter
-                noUpdateCountRef.current = 0;
-                lastFrameTimeRef.current = currentTime;
+  console.log(peerConnection)
+  console.log(mediaStream)
 
-                // Resize canvas if video dimensions changed
-                if (canvasElement.width !== videoElement.videoWidth ||
-                    canvasElement.height !== videoElement.videoHeight) {
-                    canvasElement.width = videoElement.videoWidth;
-                    canvasElement.height = videoElement.videoHeight;
-                }
-
-                // Clear and draw new frame
-                context.clearRect(0, 0, canvasElement.width, canvasElement.height);
-
-                try {
-                    context.drawImage(videoElement, 0, 0, canvasElement.width, canvasElement.height);
-                } catch (err) {
-                    // Silently handle drawing errors (e.g., video not ready)
-                }
-            } else {
-                // Increment stall counter
-                noUpdateCountRef.current++;
-
-                // After 5 seconds of no updates (300 frames), show stalled message
-                if (noUpdateCountRef.current > 300) {
-                    const hasActiveTracks = trackInfo.hasActive;
-
-                    if (!hasActiveTracks) {
-                        context.fillStyle = '#1a1a1a';
-                        context.fillRect(0, 0, canvasElement.width, canvasElement.height);
-
-                        context.font = '16px sans-serif';
-                        context.fillStyle = '#ffffff';
-                        context.textAlign = 'center';
-                        context.fillText('Screen sharing ended', canvasElement.width / 2, canvasElement.height / 2);
-
-                        // Trigger UI update for cleanup
-                        if (typeof window !== "undefined") {
-                            window.dispatchEvent(new Event("remote-streams-changed"));
-                        }
-                    }
-                }
-            }
-        }
-
-        // Continue animation loop
-        animationFrameIdRef.current = requestAnimationFrame(renderFrame);
-    }, [trackInfo.hasActive]);
-
-    useEffect(() => {
-        if (!stream || !canvasRef.current) return;
-
-        const isNewStream = streamIdRef.current !== stream.id;
-        const shouldReinitialize = isNewStream || !isInitializedRef.current;
-
-        if (shouldReinitialize) {
-            log(`Initializing video for stream ${stream.id}`, "debug", "Remote Video:");
-
-            // Cancel any existing animation
-            if (animationFrameIdRef.current) {
-                cancelAnimationFrame(animationFrameIdRef.current);
-            }
-
-            // Clean up previous video element
-            if (videoRef.current) {
-                videoRef.current.srcObject = null;
-                videoRef.current.load();
-            }
-
-            // Create or update video element
-            let videoElement = videoRef.current || document.createElement("video");
-            videoRef.current = videoElement;
-
-            // Configure video element for optimal playback
-            videoElement.srcObject = stream;
-            videoElement.playsInline = true;
-            videoElement.autoplay = true;
-            videoElement.muted = true;
-            videoElement.setAttribute('playsinline', '');
-            videoElement.setAttribute('webkit-playsinline', '');
-
-            // Enable video tracks
-            stream.getVideoTracks().forEach(track => {
-                if (!track.enabled) {
-                    track.enabled = true;
-                    log(`Enabled video track: ${track.id}`, "debug", "Remote Video:");
-                }
-            });
-
-            // Set up track ended handlers
-            stream.getTracks().forEach(track => {
-                track.onended = () => {
-                    log(`Track ${track.id} ended`, "debug", "Remote Video:");
-                    if (typeof window !== "undefined") {
-                        window.dispatchEvent(new Event("remote-streams-changed"));
-                    }
-                };
-            });
-
-            // Start video playback
-            videoElement.play().catch(error => {
-                log(`Video play failed for stream ${stream.id}: ${error.message}`, "debug", "Remote Video:");
-            });
-
-            // Initialize canvas
-            const canvasElement = canvasRef.current;
-            const context = canvasElement.getContext("2d", { alpha: false });
-
-            if (!trackInfo.hasActive) {
-                // Show placeholder for inactive streams
-                canvasElement.width = 640;
-                canvasElement.height = 360;
-                context.fillStyle = '#1a1a1a';
-                context.fillRect(0, 0, canvasElement.width, canvasElement.height);
-                context.font = '16px sans-serif';
-                context.fillStyle = '#ffffff';
-                context.textAlign = 'center';
-                context.fillText('Screen sharing ended', canvasElement.width / 2, canvasElement.height / 2);
-            }
-
-            // Reset frame tracking
-            lastFrameTimeRef.current = 0;
-            noUpdateCountRef.current = 0;
-            streamIdRef.current = stream.id;
-            isInitializedRef.current = true;
-
-            // Start rendering loop
-            renderFrame();
-        }
-
-        // Cleanup function
-        return () => {
-            if (animationFrameIdRef.current) {
-                cancelAnimationFrame(animationFrameIdRef.current);
-            }
-
-            // Don't stop the stream tracks here to prevent breaking for other components
-            if (videoRef.current) {
-                videoRef.current.srcObject = null;
-            }
-        };
-    }, [stream, trackInfo.hasActive, renderFrame]);
-
-    return <canvas ref={canvasRef} className={className} />;
+  return (
+    <video
+      ref={videoRef}
+      autoPlay
+      playsInline
+      style={{ width: "100%", height: "100%", objectFit: "contain" }}
+    />
+  );
 }
 
 export function User({ id, className, avatarSize }) {
