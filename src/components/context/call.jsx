@@ -97,6 +97,15 @@ export let CallProvider = ({ children }) => {
         });
     }, []);
 
+    // Toggle Stream
+    let toggleStream = useCallback(() => {
+        if (stream) {
+            stopScreenStream();
+        } else {
+            startScreenStream();
+        }
+    }, [stream]);
+
     // Start Screen Stream
     let startScreenStream = useCallback(async (resolution = "1280x720", framerate = 30, audio = false) => {
         try {
@@ -872,6 +881,7 @@ export let CallProvider = ({ children }) => {
             toggleDeaf,
 
             stream,
+            toggleStream, // Temp
             startScreenStream,
             stopScreenStream,
             getScreenStream,

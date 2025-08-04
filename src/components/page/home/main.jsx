@@ -38,7 +38,7 @@ export function Main() {
     let { ownUuid } = useUsersContext();
     let { send } = useWebSocketContext();
     let { encrypt_base64_using_pubkey } = useEncryptionContext();
-    let { callId, setCallId, callSecret, setCallSecret, setCreateCall, clientPing, connected, mute, toggleMute, deaf, toggleDeaf, stream, startScreenStream, stopScreenStream, getScreenStream, getAllScreenStreams, connectedUsers, streamingUsers } = useCallContext();
+    let { callId, setCallId, callSecret, setCallSecret, setCreateCall, clientPing, connected, mute, toggleMute, deaf, toggleDeaf, stream, startScreenStream, stopScreenStream, getScreenStream, getAllScreenStreams, connectedUsers, streamingUsers, toggleStream } = useCallContext();
     function handleInputChange(e) {
         setNewChatUUID(e)
     }
@@ -142,23 +142,71 @@ export function Main() {
                 </CardHeader>
                 <CardContent className="h-full w-full">
                     <p>Homepage</p>
-                    <Button onClick={() => {
-                        setCallId("c118752d-2fa5-4b3d-903f-5b4fd4004887");
-                        setCallSecret("c118752d-2fa5-4b3d-903f-5b4fd4004887");
-                        setCreateCall(true);
-                    }}>
-                        Temp Start Voice Call
-                    </Button>
-                    <p>ID: {callId}</p>
-                    <p>Secret: {callSecret}</p>
+                    {/* Calling */}
+
+                    <div className="flex gap-2">
+                        <Button
+                            disabled={connected}
+                            onClick={() => {
+                                setCallId("c118752d-2fa5-4b3d-903f-5b4fd4004887");
+                                setCallSecret("c118752d-2fa5-4b3d-903f-5b4fd4004887");
+                                setCreateCall(true);
+                            }}>
+                            Join
+                        </Button>
+
+                        {/* Mute */}
+                        <Button
+                            className={`h-9 w-9 ${mute && "bg-destructive hover:bg-destructive/90"}`}
+                            onClick={() => {
+                                if (connected) {
+                                    toggleMute();
+                                }
+                            }}
+                            disabled={!connected}
+                        >
+                            {mute ? <Icon.MicOff /> : <Icon.Mic />}
+                        </Button>
+
+                        {/* Deaf */}
+                        <Button
+                            className={`h-9 w-9 ${deaf && "bg-destructive hover:bg-destructive/90"}`}
+                            onClick={() => {
+                                if (connected) {
+                                    toggleDeaf();
+                                }
+                            }}
+                            disabled={!connected}
+                        >
+                            {deaf ? <Icon.HeadphoneOff /> : <Icon.Headphones />}
+                        </Button>
+
+                        {/* Stream */}
+                        <Button
+                            className={`h-9 w-9 ${stream && "bg-destructive hover:bg-destructive/90"}`}
+                            onClick={() => {
+                                if (connected) {
+                                    toggleStream();
+                                }
+                            }}
+                            disabled={!connected}
+                        >
+                            {stream ? <Icon.MonitorOff /> : <Icon.Monitor />}
+                        </Button>
+                    </div>
+
+                    <p>ID: {callId || "None"}</p>
+                    <p>Secret: {callSecret || "None"}</p>
                     <p>Ping: {clientPing}</p>
-                    <p>Connected: {connected}</p>
-                    <p>Mute: {mute}</p>
-                    <p>Deaf: {deaf}</p>
-                    <p>Active Stream: {stream}</p>
+                    <p>Connected: {connected ? "true" : "false"}</p>
+                    <p>Mute: {mute ? "true" : "false"}</p>
+                    <p>Deaf: {deaf ? "true" : "false"}</p>
+                    <p>Active Stream: {stream ? "true" : "false"}</p>
                     <p>All Streams: {JSON.stringify(getAllScreenStreams())}</p>
                     <p>Connected: {JSON.stringify(connectedUsers)}</p>
                     <p>Streaming: {JSON.stringify(streamingUsers)}</p>
+
+                    {/* Calling */}
                 </CardContent>
             </Card>
             <Card className="w-70">
