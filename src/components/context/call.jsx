@@ -75,8 +75,8 @@ export let CallProvider = ({ children }) => {
 
     let micRefs = useRef(new Map());
     let screenRefs = useRef(new Map());
-    let audioRefs = useRef(new Map()); // Separate ref for audio elements
-    let audioStreamsRefs = useRef(new Map()); // Separate ref for audio streams
+    let audioRefs = useRef(new Map());
+    let audioStreamsRefs = useRef(new Map());
 
     let [connectedUsers, setConnectedUsers] = useState([]);
     let [streamingUsers, setStreamingUsers] = useState([]);
@@ -84,16 +84,32 @@ export let CallProvider = ({ children }) => {
     // Toggle Mute
     let toggleMute = useCallback(() => {
         setMute((prevMute) => {
-            ls.set("call_mute", !prevMute);
-            return !prevMute;
+            const newMute = !prevMute;
+            ls.set("call_mute", newMute);
+
+            // When unmuting, also undeafen
+            if (!newMute) {
+                setDeaf(false);
+                ls.set("call_deaf", false);
+            }
+
+            return newMute;
         });
     }, []);
 
     // Toggle Deaf
     let toggleDeaf = useCallback(() => {
         setDeaf((prevDeaf) => {
-            ls.set("call_deaf", !prevDeaf);
-            return !prevDeaf;
+            const newDeaf = !prevDeaf;
+            ls.set("call_deaf", newDeaf);
+
+            // When deafening, also mute
+            if (newDeaf) {
+                setMute(true);
+                ls.set("call_mute", true);
+            }
+
+            return newDeaf;
         });
     }, []);
 
@@ -785,7 +801,14 @@ export let CallProvider = ({ children }) => {
                     })
                     .then(data => {
                         if (data.type === "identification_response") {
-                            setIdentified(true)
+                            setIdentified(true);
+                            let newStreamingUsers = [];
+                            Object.keys(data.data.user_states).forEach((id) => {
+                                if (data.data.user_states[id].streaming) {
+                                    newStreamingUsers.push(id);
+                                }
+                            });
+                            setStreamingUsers(newStreamingUsers)
                         } else {
                             setIdentified(false);
                         }
