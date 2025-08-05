@@ -564,18 +564,7 @@ export let CallProvider = ({ children }) => {
         }
 
         // Add Own Screen Stream
-        if (screenStreamRef.current && isScreenShare && !isInitiator) {
-            let videoTransceiver = pc.addTransceiver('video', {
-                direction: 'recvonly'
-            });
-
-            let videoTrack = screenStreamRef.current.getVideoTracks()[0];
-
-            if (videoTrack) {
-                await videoTransceiver.sender.replaceTrack(videoTrack);
-                videoTransceiver.direction = 'sendrecv';
-            }
-
+        if (screenStreamRef.current && isScreenShare && isInitiator) {
             screenStreamRef.current.getTracks().forEach(track => {
                 pc.addTrack(track, screenStreamRef.current);
             });
@@ -600,9 +589,6 @@ export let CallProvider = ({ children }) => {
 
         // Track Events
         pc.ontrack = (event) => {
-            console.log("Track event received:", event.track);
-            console.log("Track stream received:", event.streams[0]);
-
             event.track.onended = async () => {
                 if (isScreenShare) {
                     let stream = screenRefs.current.get(id);
@@ -627,7 +613,6 @@ export let CallProvider = ({ children }) => {
                 }
 
                 event.track.enabled = true;
-                console.log(event);
                 stream.addTrack(event.track);
 
                 setStreamingUsers((prev) => {

@@ -115,8 +115,6 @@ export function VideoStream({ peerConnection }) {
     }
 
     let handleTrack = (event) => {
-      console.log(event.streams)
-      console.log("Track received:", event.track);
       setMediaStream(event.streams[0]);
     };
 
@@ -129,13 +127,9 @@ export function VideoStream({ peerConnection }) {
 
   useEffect(() => {
     if (videoRef.current && mediaStream) {
-      console.log("Attaching stream to video element");
       videoRef.current.srcObject = mediaStream;
     }
   }, [mediaStream]);
-
-  console.log(peerConnection)
-  console.log(mediaStream)
 
   return (
     <video

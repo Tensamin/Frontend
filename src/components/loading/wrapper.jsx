@@ -70,7 +70,7 @@ export function LoadingWrapper() {
                     'color: red; font-size: 20px; font-weight: bold;',
                 ];
 
-            if (ls.get("debug") !== "true") {
+            if (ls.get("debug") !== "true" && ls.get("debug") !== "no-warning") {
                 console.warn(warningMessage, ...styles);
                 console.log("Enabled debug mode to hide this warning.")
             }
