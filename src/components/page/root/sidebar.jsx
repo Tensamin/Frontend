@@ -1,6 +1,7 @@
 // Context Imports
 import { useUsersContext } from "@/components/context/users";
 import { useThemeProvider } from "@/components/context/theme";
+import { useCallContext } from "@/components/context/call";
 
 // Components
 import { Button } from "@/components/ui/button";
@@ -15,11 +16,13 @@ import {
 } from "@/components/ui/sidebar";
 import { UserModal } from "@/components/page/root/user-modal/main"
 import { Chats } from "@/components/page/root/chats"
+import { VoiceControls } from "@/components/page/voice/controls";
 
 // Main
 export function AppSidebar(props) {
   let { forceLoad, ownUuid } = useUsersContext();
   let { sidebarRightSide } = useThemeProvider();
+  let { connected } = useCallContext();
 
   return (
     <Sidebar side={sidebarRightSide ? "right" : "left"} variant="inset" {...props}>
@@ -34,6 +37,15 @@ export function AppSidebar(props) {
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
+        {connected && (
+          <SidebarMenu>
+            <SidebarMenuItem>
+              <SidebarMenuButton size="lg" asChild>
+                <VoiceControls />
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          </SidebarMenu>
+        )}
         <SidebarMenu className="mt-3 pb-5">
           <SidebarMenuItem>
             <div className="flex w-full justify-center rounded-full bg-card">

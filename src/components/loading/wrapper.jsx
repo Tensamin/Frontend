@@ -86,15 +86,15 @@ export function LoadingWrapper() {
             <CryptoProvider>
                 <UsersProvider>
                     <WebSocketProvider>
-                        <CallProvider>
-                            <MessageProvider>
+                        <MessageProvider>
+                            <CallProvider>
                                 <PageProvider>
                                     <ThemeProvider>
                                         <Page />
                                     </ThemeProvider>
                                 </PageProvider>
-                            </MessageProvider>
-                        </CallProvider>
+                            </CallProvider>
+                        </MessageProvider>
                     </WebSocketProvider>
                 </UsersProvider>
             </CryptoProvider>

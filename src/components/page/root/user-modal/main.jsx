@@ -251,6 +251,7 @@ export function MiniUserModal({ id }) {
   );
 }
 
+// Just logo and hover thing
 export function MiniMiniUserModal({ id }) {
   let [avatar, setAvatar] = useState("...");
   let [username, setUsername] = useState("...");
@@ -301,4 +302,68 @@ export function MiniMiniUserModal({ id }) {
       </Tooltip>
     </div>
   );
+}
+
+// User Modal for call widget
+export function CallModal({ id }) {
+  let [avatar, setAvatar] = useState("...");
+  let [username, setUsername] = useState("...");
+  let [display, setDisplay] = useState("...");
+  let { get } = useUsersContext();
+
+  useEffect(() => {
+    if (id !== "") get(id)
+      .then(data => {
+        setAvatar(data.avatar);
+        setUsername(data.username);
+        setDisplay(data.display);
+      });
+  }, [id])
+
+  return (
+    <div className="rounded-xl flex flex-col items-center p-3 gap-3 justify-center">
+      <div className="flex flex-col text-center w-full gap-3 items-center">
+        <div className="relative">
+          {avatar !== "..." ? (
+            <Avatar className="size-40 bg-accent/50 border-1">
+              {avatar !== "" ? (
+                <Image
+                  className="w-auto h-auto object-fill"
+                  data-slot="avatar-image"
+                  width={150}
+                  height={150}
+                  src={avatar}
+                  alt=""
+                  onError={() => {
+                    setAvatar("")
+                  }}
+                />
+              ) : null}
+              <AvatarFallback>
+                {convertDisplayNameToInitials(username)}
+              </AvatarFallback>
+            </Avatar>
+          ) : (
+            <Skeleton className="rounded-full size-8" />
+          )}
+        </div>
+        <div className="w-full">
+          <div className="text-4xl font-bold">
+            {display !== "..." ?
+              <p>{display}</p>
+              :
+              <Skeleton className="mr-20"><p className="invisible">🥴</p></Skeleton>
+            }
+          </div>
+          <div className="text-lg font-bold text-foreground/67">
+            {username !== "..." ?
+              <p>{username}</p>
+              :
+              <Skeleton className="mr-8 mt-1"><p className="invisible">🥴</p></Skeleton>
+            }
+          </div>
+        </div>
+      </div>
+    </div>
+  )
 }

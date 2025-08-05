@@ -4,10 +4,8 @@
 import React, {
 	createContext,
 	useContext,
-	useEffect,
 	useState,
 } from "react";
-import { v7 } from "uuid";
 
 // Lib Imports
 import { log, getDisplayFromUsername } from "@/lib/utils";
@@ -33,87 +31,7 @@ export function UsersProvider({ children }) {
 	let [fetchedUsers, setFetchedUsers] = useState({});
 	let [userStates, setUserStates] = useState({});
 	let [chatsArray, setChatsArray] = useState([]);
-	let [shouldCreateCall, setShouldCreateCall] = useState(false);
-	let [gettingCalled, setGettingCalled] = useState(false);
-	let [gettingCalledData, setGettingCalledData] = useState({});
 	let [forceLoad, setForceLoad] = useState(false);
-	let [currentCallStream, setCurrentCallStream] = useState({
-		active: false,
-		audio: false,
-		resolution: "720",
-		refresh: "30",
-	})
-	let [currentCall, setCurrentCall] = useState({
-		invite: false,
-		connected: false,
-		mute: ls.get("call_mute") === "true",
-		deaf: ls.get("call_deaf") === "true",
-		id: v7(),
-		secret: v7(),
-		users: [],
-	});
-	let [newCallConnectionResolver, setNewCallConnectionResolver] = useState(null);
-	let [stopCallConnectionResolver, setStopCallConnectionResolver] = useState(null);
-
-	useEffect(() => {
-		ls.set("call_mute", currentCall.mute ? "true" : "false");
-		ls.set("call_deaf", currentCall.deaf ? "true" : "false");
-	}, [currentCall.mute, currentCall.deaf]);
-
-	useEffect(() => {
-		if (currentCall.connected && currentCall.identified && newCallConnectionResolver) {
-			newCallConnectionResolver();
-			setNewCallConnectionResolver(null);
-		}
-	}, [currentCall.connected, currentCall.identified, newCallConnectionResolver]);
-
-	useEffect(() => {
-		if (!currentCall.connected && stopCallConnectionResolver) {
-			stopCallConnectionResolver();
-			setStopCallConnectionResolver(null);
-		}
-	}, [currentCall.connected, currentCall.identified, stopCallConnectionResolver]);
-
-	async function startVoiceCall(id, secret, invite = false) {
-		let connectionPromise = new Promise((resolve) => {
-			setNewCallConnectionResolver(() => resolve);
-		});
-
-		if (typeof id !== "undefined" && typeof secret !== "undefined") {
-			setCurrentCall((prevData) => ({
-				...prevData,
-				invite: invite,
-				id: id,
-				secret: secret,
-			}));
-		} else {
-			setCurrentCall((prevData) => ({
-				...prevData,
-				invite: invite,
-			}));
-		}
-
-		setShouldCreateCall(true);
-
-		await connectionPromise;
-	}
-
-	async function stopVoiceCall() {
-		let connectionPromise = new Promise((resolve) => {
-			setStopCallConnectionResolver(() => resolve);
-		});
-
-		setShouldCreateCall(false);
-		setCurrentCall((prevCall) => ({
-			...prevCall,
-			connected: false,
-			id: v7(),
-			secret: v7(),
-			users: [],
-		}));
-
-		await connectionPromise;
-	}
 
 	function getUserState(uuid) {
 		if (userStates[uuid]) {
@@ -208,19 +126,8 @@ export function UsersProvider({ children }) {
 				chatsArray,
 				setChatsArray,
 				makeChatTop,
-				currentCallStream,
-				setCurrentCallStream,
-				currentCall,
-				setCurrentCall,
-				shouldCreateCall,
-				startVoiceCall,
-				stopVoiceCall,
 				forceLoad,
 				setForceLoad,
-				gettingCalled,
-				setGettingCalled,
-				gettingCalledData,
-				setGettingCalledData,
 				ownUuid: ls.get("auth_uuid"),
 			}}
 		>

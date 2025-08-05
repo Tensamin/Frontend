@@ -39,7 +39,7 @@ export function Main() {
     let { ownUuid } = useUsersContext();
     let { send } = useWebSocketContext();
     let { encrypt_base64_using_pubkey } = useEncryptionContext();
-    let { voiceSend, createP2PConnection, callId, setCallId, callSecret, setCallSecret, setCreateCall, clientPing, connected, mute, toggleMute, deaf, toggleDeaf, stream, startScreenStream, stopScreenStream, getScreenStream, connectedUsers, streamingUsers, toggleStream } = useCallContext();
+    let { voiceSend, createP2PConnection, callId, setCallId, callSecret, setCallSecret, startCall, clientPing, connected, mute, toggleMute, deaf, toggleDeaf, stream, startScreenStream, stopScreenStream, getScreenStream, connectedUsers, streamingUsers, toggleStream } = useCallContext();
     function handleInputChange(e) {
         setNewChatUUID(e)
     }
@@ -151,7 +151,7 @@ export function Main() {
                             onClick={() => {
                                 setCallId("c118752d-2fa5-4b3d-903f-5b4fd4004887");
                                 setCallSecret("c118752d-2fa5-4b3d-903f-5b4fd4004887");
-                                setCreateCall(true);
+                                startCall();
                             }}>
                             Join
                         </Button>

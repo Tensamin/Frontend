@@ -1,20 +1,17 @@
 // Package Imports
 import React, { useState, useEffect, useMemo, memo, useRef, useCallback } from "react";
 import * as Icon from "lucide-react";
-import { Bouncy } from "ldrs/react";
-import "ldrs/react/Bouncy.css";
-
-// Lib Imports
-import { log } from "@/lib/utils";
-import ls from "@/lib/localStorageManager";
+import { toast } from "sonner"
+//import { Bouncy } from "ldrs/react";
+//import "ldrs/react/Bouncy.css";
 
 // Context Imports
-import { useUsersContext } from "@/components/context/users";
 import { usePageContext } from "@/components/context/page";
+import { useCallContext } from "@/components/context/call";
 
 // Components
 import { Card } from "@/components/ui/card";
-import { Switch } from "@/components/ui/switch";
+//import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import {
@@ -28,8 +25,6 @@ import {
     DropdownMenuSubContent,
     DropdownMenuSubTrigger,
     DropdownMenuTrigger,
-    DropdownMenuRadioGroup,
-    DropdownMenuRadioItem,
 } from "@/components/ui/dropdown-menu";
 import {
     Tooltip,
@@ -38,174 +33,54 @@ import {
 } from "@/components/ui/tooltip";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Checkbox } from "@/components/ui/checkbox";
-import { MiniMiniUserModal } from "@/components/page/root/user-modal/main";
-
-// Constants
-const SCREEN_STREAM_UPDATE_INTERVAL = 2000; // Reduced from 1000ms to 2000ms
+import { VideoStream } from "@/components/page/voice/parts"
+//import { MiniMiniUserModal } from "@/components/page/root/user-modal/main";
 
 // Main
 export function VoiceControls() {
-    const {
-        currentCall,
-        setCurrentCall,
-        stopVoiceCall,
-        currentCallStream,
-        setCurrentCallStream,
-    } = useUsersContext();
-    const { setPage } = usePageContext();
+    let { setPage } = usePageContext();
+    let { toggleMute, toggleDeaf, mute, deaf, stream, stopCall, getScreenStream, startScreenStream, stopScreenStream, setStreamResolution, setStreamRefresh, setStreamAudio, streamResolution, streamRefresh, streamAudio } = useCallContext();
 
-    const [expandUsers, setExpandUsers] = useState(true);
-    const [streamError, setStreamError] = useState(null);
-    const [screenStreams, setScreenStreams] = useState([]);
-    const intervalRef = useRef(null);
+    //let [expandUsers, setExpandUsers] = useState(true);
 
-    // Optimized screen stream update function
-    const updateScreenStreams = useCallback(() => {
-        if (typeof window !== "undefined" && window.getAllScreenStreams) {
-            const streams = window.getAllScreenStreams();
-            setScreenStreams(prevStreams => {
-                // Only update if streams actually changed to prevent unnecessary re-renders
-                const streamIds = streams.map(s => s.stream.id).sort().join(',');
-                const prevStreamIds = prevStreams.map(s => s.stream.id).sort().join(',');
-                
-                if (streamIds !== prevStreamIds) {
-                    return streams;
-                }
-                return prevStreams;
-            });
+    function changeStreamRefresh(event) {
+        setStreamRefresh(event);
+        if (stream) {
+            stopScreenStream();
+            startScreenStream();
+            toast.info("Restarted Stream!");
         }
-    }, []);
+    }
 
-    // Optimized screen stream management
-    useEffect(() => {
-        // Initial update
-        updateScreenStreams();
-
-        // Set up optimized interval with reduced frequency
-        intervalRef.current = setInterval(updateScreenStreams, SCREEN_STREAM_UPDATE_INTERVAL);
-
-        // Listen for immediate updates via events
-        const handleStreamChange = () => updateScreenStreams();
-        if (typeof window !== "undefined") {
-            window.addEventListener("remote-streams-changed", handleStreamChange);
+    function changeStreamResolution(event) {
+        setStreamResolution(event);
+        if (stream) {
+            stopScreenStream();
+            startScreenStream();
+            toast.info("Restarted Stream!");
         }
+    }
 
-        return () => {
-            if (intervalRef.current) {
-                clearInterval(intervalRef.current);
-            }
-            if (typeof window !== "undefined") {
-                window.removeEventListener("remote-streams-changed", handleStreamChange);
-            }
-        };
-    }, [updateScreenStreams]);
-
-    // Optimized stream handling functions
-    const handleStartStream = useCallback(async () => {
-        setStreamError(null);
-        try {
-            if (typeof window !== "undefined" && window.startScreenShare) {
-                await window.startScreenShare();
-                // Force immediate update after starting
-                setTimeout(updateScreenStreams, 100);
-            }
-        } catch (err) {
-            const errorMsg = "Screen sharing failed: " + err.message;
-            setStreamError(errorMsg);
-            log(errorMsg, "showError");
+    function changeStreamAudio(event) {
+        setStreamAudio(event);
+        if (stream) {
+            stopScreenStream();
+            startScreenStream();
+            toast.info("Restarted Stream!");
         }
-    }, [updateScreenStreams]);
-
-    const handleStopStream = useCallback(() => {
-        if (typeof window !== "undefined" && window.stopScreenShare) {
-            window.stopScreenShare();
-            // Force immediate update after stopping
-            setTimeout(updateScreenStreams, 100);
-        }
-    }, [updateScreenStreams]);
-
-    // Optimized state update functions
-    const setCurrentCallActive = useCallback((event) => {
-        setCurrentCallStream((prev) => ({
-            ...prev,
-            audio: event,
-        }));
-    }, [setCurrentCallStream]);
-
-    const changeStreamResolution = useCallback((event) => {
-        setCurrentCallStream((prev) => ({
-            ...prev,
-            resolution: event,
-        }));
-    }, [setCurrentCallStream]);
-
-    const changeStreamRefresh = useCallback((event) => {
-        setCurrentCallStream((prev) => ({
-            ...prev,
-            refresh: event,
-        }));
-    }, [setCurrentCallStream]);
-
-    const toggleMute = useCallback(() => {
-        setCurrentCall((prev) => ({
-            ...prev,
-            mute: !prev.mute,
-            deaf: !prev.mute ? prev.deaf : false, // Un-deafen if un-muting
-        }));
-    }, [setCurrentCall]);
-
-    const toggleDeaf = useCallback(() => {
-        setCurrentCall((prev) => ({
-            ...prev,
-            deaf: !prev.deaf,
-            mute: prev.deaf ? prev.mute : true, // Mute if deafening
-        }));
-    }, [setCurrentCall]);
-
-    // Memoized user list to prevent unnecessary re-renders
-    const memoizedUserList = useMemo(
-        () =>
-            currentCall.users.length !== 0 ? (
-                currentCall.users.map((userId) => (
-                    <MemoizedInviteItem id={userId} key={userId} />
-                ))
-            ) : (
-                <div className="flex w-full items-center justify-center gap-3 text-sm">
-                    <Bouncy size="25" speed="1.75" color="var(--foreground)" />
-                    Waiting for others...
-                </div>
-            ),
-        [currentCall.users],
-    );
-
-    // Error handling effect
-    useEffect(() => {
-        if (streamError && streamError !== "") {
-            log(streamError, "showError");
-        }
-    }, [streamError]);
+    }
 
     return (
-        <div className="flex w-full flex-col gap-3">
-            {/* Display all screen streams (local and remote) */}
-            {screenStreams.length > 0 && (
-                <div className="flex flex-col items-center gap-2">
-                    {screenStreams.map((screenStream, index) => {
-                        return screenStream.type === 'local' && (
-                            <div key={index} className="w-full">
-                                <RemoteStreamVideo
-                                    stream={screenStream.stream}
-                                    className="w-full max-w-md rounded-xl border-1"
-                                />
-                            </div>
-                        )
-                    })}
+        <Card className="flex w-full flex-col p-2 gap-2">
+            {stream && (
+                <div className="">
+                    <VideoStream peerConnection={getScreenStream()} local={true} className="rounded-lg border-1" />
                 </div>
             )}
 
-            <Card className="flex flex-row justify-center gap-0 p-2">
-                <div className="flex flex-col gap-2">
-                    <div className="flex flex-row gap-2">
+            <div className="flex flex-row justify-center gap-3">
+                <div className="flex flex-col gap-3">
+                    <div className="flex flex-row gap-3">
                         {/* Soundboard */}
                         <Tooltip delayDuration={2000}>
                             <TooltipTrigger asChild>
@@ -239,7 +114,7 @@ export function VoiceControls() {
                         </Tooltip>
                     </div>
 
-                    <div className="flex flex-row gap-2">
+                    <div className="flex flex-row gap-3">
                         {/* Stream */}
                         <div>
                             <DropdownMenu>
@@ -247,7 +122,7 @@ export function VoiceControls() {
                                     <TooltipTrigger asChild>
                                         <DropdownMenuTrigger asChild>
                                             <Button
-                                                variant={currentCallStream.active ? "secondary" : "default"}
+                                                variant={stream ? "secondary" : "default"}
                                                 className="h-9 w-9"
                                             >
                                                 <Icon.Monitor />
@@ -261,20 +136,20 @@ export function VoiceControls() {
                                 <DropdownMenuContent>
                                     <DropdownMenuGroup heading="Actions">
                                         <DropdownMenuItem
-                                            disabled={currentCallStream.active}
-                                            onClick={handleStartStream}
+                                            disabled={stream}
+                                            onClick={startScreenStream}
                                         >
                                             <Icon.MonitorCheck className="mr-2" />
                                             <span>Start Stream</span>
                                         </DropdownMenuItem>
                                         <DropdownMenuItem
-                                            disabled={!currentCallStream.active}
-                                            onClick={handleStopStream}
+                                            disabled={!stream}
+                                            onClick={stopScreenStream}
                                         >
                                             <Icon.MonitorX className="mr-2" />
                                             <span>Stop Stream</span>
                                         </DropdownMenuItem>
-                                        <DropdownMenuItem disabled={!currentCallStream.active}>
+                                        <DropdownMenuItem disabled={!stream}>
                                             <Icon.ScreenShare className="mr-2" />
                                             <span>Change Window</span>
                                         </DropdownMenuItem>
@@ -291,8 +166,8 @@ export function VoiceControls() {
                                             </Label>
                                             <Checkbox
                                                 id="stream-audio"
-                                                checked={currentCallStream.audio}
-                                                onCheckedChange={setCurrentCallActive}
+                                                checked={streamAudio}
+                                                onCheckedChange={changeStreamAudio}
                                             />
                                         </DropdownMenuItem>
                                         <DropdownMenuSub>
@@ -305,7 +180,7 @@ export function VoiceControls() {
                                                     <DropdownMenuGroup>
                                                         <RadioGroup
                                                             className="gap-0.5"
-                                                            defaultValue={currentCallStream.refresh}
+                                                            defaultValue={streamRefresh}
                                                             onValueChange={changeStreamRefresh}
                                                         >
                                                             <DropdownMenuItem>
@@ -338,31 +213,31 @@ export function VoiceControls() {
                                                     <DropdownMenuGroup>
                                                         <RadioGroup
                                                             className="gap-0.5"
-                                                            defaultValue={currentCallStream.resolution}
+                                                            defaultValue={streamResolution}
                                                             onValueChange={changeStreamResolution}
                                                         >
                                                             <DropdownMenuItem>
-                                                                <RadioGroupItem value="480" id="480" />
+                                                                <RadioGroupItem value="854x480" id="480" />
                                                                 <Label className="w-full pl-2" htmlFor="480">
                                                                     480p
                                                                 </Label>
                                                             </DropdownMenuItem>
                                                             <DropdownMenuItem>
-                                                                <RadioGroupItem value="720" id="720" />
+                                                                <RadioGroupItem value="1280x720" id="720" />
                                                                 <Label className="w-full pl-2" htmlFor="720">
                                                                     720p
                                                                 </Label>
                                                             </DropdownMenuItem>
                                                             <DropdownMenuItem>
-                                                                <RadioGroupItem value="1080" id="1080" />
+                                                                <RadioGroupItem value="1920x1080" id="1080" />
                                                                 <Label className="w-full pl-2" htmlFor="1080">
                                                                     1080p
                                                                 </Label>
                                                             </DropdownMenuItem>
                                                             <DropdownMenuItem>
-                                                                <RadioGroupItem value="2560" id="2560" />
-                                                                <Label className="w-full pl-2" htmlFor="2560">
-                                                                    2560p
+                                                                <RadioGroupItem value="2560x1440" id="1440" />
+                                                                <Label className="w-full pl-2" htmlFor="1440">
+                                                                    1440p
                                                                 </Label>
                                                             </DropdownMenuItem>
                                                         </RadioGroup>
@@ -389,12 +264,12 @@ export function VoiceControls() {
                     </div>
                 </div>
 
-                <div className="w-full justify-center">
-                    <div className="border-l-1 pl-0.5" />
+                <div className="w-full h-auto flex justify-center items-center">
+                    <div className="h-3/4 border-l pl-0.5"></div>
                 </div>
 
-                <div className="flex flex-col gap-2">
-                    <div className="flex flex-row gap-2">
+                <div className="flex flex-col gap-3">
+                    <div className="flex flex-row gap-3">
                         {/* Expand */}
                         <Tooltip delayDuration={2000}>
                             <TooltipTrigger asChild>
@@ -415,7 +290,7 @@ export function VoiceControls() {
                             <TooltipTrigger asChild>
                                 <Button
                                     className="h-9 w-9 bg-destructive hover:bg-destructive/90"
-                                    onClick={stopVoiceCall}
+                                    onClick={stopCall}
                                 >
                                     <Icon.PhoneOutgoing />
                                 </Button>
@@ -426,18 +301,18 @@ export function VoiceControls() {
                         </Tooltip>
                     </div>
 
-                    <div className="flex flex-row gap-2">
+                    <div className="flex flex-row gap-3">
                         {/* Mute */}
                         <Tooltip delayDuration={2000}>
                             <TooltipTrigger asChild>
                                 <Button
-                                    className={`h-9 w-9 ${currentCall.mute
+                                    className={`h-9 w-9 ${mute
                                         ? "bg-destructive hover:bg-destructive/90"
                                         : ""
                                         }`}
                                     onClick={toggleMute}
                                 >
-                                    {currentCall.mute ? <Icon.MicOff /> : <Icon.Mic />}
+                                    {mute ? <Icon.MicOff /> : <Icon.Mic />}
                                 </Button>
                             </TooltipTrigger>
                             <TooltipContent>
@@ -449,13 +324,13 @@ export function VoiceControls() {
                         <Tooltip delayDuration={2000}>
                             <TooltipTrigger asChild>
                                 <Button
-                                    className={`h-9 w-9 ${currentCall.deaf
+                                    className={`h-9 w-9 ${deaf
                                         ? "bg-destructive hover:bg-destructive/90"
                                         : ""
                                         }`}
                                     onClick={toggleDeaf}
                                 >
-                                    {currentCall.deaf ? (
+                                    {deaf ? (
                                         <Icon.HeadphoneOff />
                                     ) : (
                                         <Icon.Headphones />
@@ -468,8 +343,8 @@ export function VoiceControls() {
                         </Tooltip>
                     </div>
                 </div>
-            </Card>
-            {currentCall.users.length >= 25 ? (
+            </div>
+            {/*currentCall.users.length >= 25 ? (
                 <div className="flex items-center gap-2">
                     <Switch
                         id="expand-users"
@@ -492,29 +367,7 @@ export function VoiceControls() {
                         className="pointer-events-none absolute h-full w-full rounded-xl bg-gradient-to-b from-transparent to-background"
                     />
                 </div>
-            </div>
-        </div>
+            </div>*/}
+        </Card>
     );
 }
-
-let MemoizedInviteItem = memo(function InviteItem({ id }) {
-    let { get } = useUsersContext();
-    let [profile, setProfile] = useState(null);
-
-    useEffect(() => {
-        if (id) {
-            get(id).then(setProfile);
-        }
-    }, [id, get]);
-
-    if (!profile) return null;
-
-    return (
-        <MiniMiniUserModal
-            display={profile.display}
-            username={profile.username}
-            avatar={profile.avatar}
-            key={id}
-        />
-    );
-});

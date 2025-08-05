@@ -21,6 +21,8 @@ import ls from "@/lib/localStorageManager";
 import { useCryptoContext } from "@/components/context/crypto";
 import { useUsersContext } from "@/components/context/users";
 import { useEncryptionContext } from "@/components/context/encryption";
+import { useWebSocketContext } from "@/components/context/websocket";
+import { useMessageContext } from "@/components/context/messages";
 
 // Config
 let webrtc_servers = {
@@ -51,12 +53,17 @@ export let CallProvider = ({ children }) => {
     let responseTimeout = 10000;
 
     // Basic Functions
-    let { encrypt_base64_using_aes, decrypt_base64_using_aes, encrypt_base64_using_pubkey } = useEncryptionContext();
-    let { privateKeyHash } = useCryptoContext();
+    let { encrypt_base64_using_aes, decrypt_base64_using_aes, decrypt_base64_using_privkey, encrypt_base64_using_pubkey } = useEncryptionContext();
+    let { privateKeyHash, privateKey } = useCryptoContext();
     let { ownUuid, get } = useUsersContext();
+    let { receiver } = useMessageContext();
+    let { message, wsSend } = useWebSocketContext();
 
     // Calling Stuff
     let [createCall, setCreateCall] = useState(false);
+    let [invitedToCall, setInvitedToCall] = useState(false);
+    let [inviteData, setInviteData] = useState({});
+    let [inviteOnNewCall, setInviteOnNewCall] = useState(false);
 
     let [clientPing, setClientPing] = useState(0);
     let [connected, setConnected] = useState(false);
@@ -68,6 +75,9 @@ export let CallProvider = ({ children }) => {
     let [mute, setMute] = useState(ls.get("call_mute") === "true" || false);
     let [deaf, setDeaf] = useState(ls.get("call_deaf") === "true" || false);
     let [stream, setStream] = useState(false);
+    let [streamResolution, setStreamResolution] = useState("1280x720");
+    let [streamRefresh, setStreamRefresh] = useState("30");
+    let [streamAudio, setStreamAudio] = useState(false);
 
     // WebRTC
     let micStreamRef = useRef(null);
@@ -80,6 +90,38 @@ export let CallProvider = ({ children }) => {
 
     let [connectedUsers, setConnectedUsers] = useState([]);
     let [streamingUsers, setStreamingUsers] = useState([]);
+
+    function reset() {
+        micStreamRef.current?.getTracks().forEach(track => track.stop());
+        screenStreamRef.current?.getTracks().forEach(track => track.stop());
+        micRefs.current.clear();
+        screenRefs.current.clear();
+        audioRefs.current.clear();
+        audioStreamsRefs.current.clear();
+        setConnectedUsers([]);
+        setStreamingUsers([]);
+        setCreateCall(false);
+        setCallId(null);
+        setCallSecret(null);
+        setIdentified(false);
+        setClientPing("?");
+        setConnected(false);
+    }
+
+    // Call Invites
+    useEffect(() => {
+        async function doStuff() {
+            if (message.type === "new_call") {
+                setInviteData({
+                    callerId: message.data.sender_id,
+                    callId: message.data.call_id,
+                    callSecret: await decrypt_base64_using_privkey(message.data.call_secret, privateKey),
+                })
+                setInvitedToCall(true)
+            }
+        }
+        doStuff();
+    }, [message])
 
     // Toggle Mute
     let toggleMute = useCallback(() => {
@@ -112,15 +154,6 @@ export let CallProvider = ({ children }) => {
             return newDeaf;
         });
     }, []);
-
-    // Toggle Stream
-    let toggleStream = useCallback(() => {
-        if (stream) {
-            stopScreenStream();
-        } else {
-            startScreenStream();
-        }
-    }, [stream]);
 
     // Get Screen Stream
     let getScreenStream = useCallback((id) => {
@@ -319,6 +352,34 @@ export let CallProvider = ({ children }) => {
                     audio: true,
                 });
                 setConnectedUsers([ownUuid]);
+                if (inviteOnNewCall) {
+                    let publicKey;
+                    if (receiver !== "") {
+                        publicKey = await get(receiver).then(data => { return data.public_key })
+                        await wsSend(
+                            "call_invite",
+                            {
+                                message: `Invited ${receiver} to the call ${callId}`,
+                                log_level: 0,
+                            },
+                            {
+                                receiver_id: receiver,
+                                call_id: callId,
+                                call_secret: await encrypt_base64_using_pubkey(
+                                    btoa(callSecret),
+                                    publicKey,
+                                ),
+                                call_secret_sha: await sha256(callSecret),
+                            },
+                        ).then(data => {
+                            if (data.type !== "error") {
+                                log("Sent Invite", "success");
+                            } else {
+                                log(data.log.message, "showError");
+                            }
+                        })
+                    }
+                }
             },
             onClose: () => {
                 logFunction("Call disconnected", "info");
@@ -400,15 +461,15 @@ export let CallProvider = ({ children }) => {
     }, [sendMessage, connected]);
 
     // Start Screen Stream
-    let startScreenStream = useCallback(async (resolution = "1280x720", framerate = 30, audio = false) => {
+    let startScreenStream = useCallback(async () => {
         try {
             let stream = await navigator.mediaDevices.getDisplayMedia({
                 video: {
-                    frameRate: { ideal: framerate, max: framerate },
-                    width: { ideal: resolution.split("x")[0], max: resolution.split("x")[0] },
-                    height: { ideal: resolution.split("x")[1], max: resolution.split("x")[1] }
+                    frameRate: { ideal: streamRefresh, max: streamRefresh },
+                    width: { ideal: streamResolution.split("x")[0], max: streamResolution.split("x")[0] },
+                    height: { ideal: streamResolution.split("x")[1], max: streamResolution.split("x")[1] }
                 },
-                audio: audio
+                audio: streamAudio
             });
 
             screenStreamRef.current = stream;
@@ -750,6 +811,17 @@ export let CallProvider = ({ children }) => {
         return pc;
     }, [send, webrtc_servers, encrypt_base64_using_aes, callSecret, setStreamingUsers]);
 
+    // Start Call
+    let startCall = useCallback(async (shouldInviteReceiver) => {
+        setCreateCall(true);
+        setInviteOnNewCall(true);
+    }, [])
+
+    // End Call
+    let stopCall = useCallback(() => {
+        reset();
+    }, [])
+
     // Update Connected State
     useEffect(() => {
         setConnected(readyState === ReadyState.OPEN);
@@ -841,20 +913,7 @@ export let CallProvider = ({ children }) => {
             });
             pendingRequests.current.clear();
 
-            micStreamRef.current?.getTracks().forEach(track => track.stop());
-            screenStreamRef.current?.getTracks().forEach(track => track.stop());
-            micRefs.current.clear();
-            screenRefs.current.clear();
-            audioRefs.current.clear();
-            audioStreamsRefs.current.clear();
-            setConnectedUsers([]);
-            setStreamingUsers([]);
-            setCreateCall(false);
-            setCallId(null);
-            setCallSecret(null);
-            setIdentified(false);
-            setClientPing("?");
-            setConnected(false);
+            reset();
         };
     }, []);
 
@@ -868,7 +927,12 @@ export let CallProvider = ({ children }) => {
 
             clientPing,
             connected,
-            setCreateCall,
+            startCall,
+            stopCall,
+            invitedToCall,
+            setInvitedToCall,
+            inviteData,
+            setInviteData,
 
             mute,
             toggleMute,
@@ -877,10 +941,16 @@ export let CallProvider = ({ children }) => {
             toggleDeaf,
 
             stream,
-            toggleStream, // Temp
+            streamResolution,
+            setStreamResolution,
+            streamRefresh,
+            setStreamRefresh,
+            streamAudio,
+            setStreamAudio,
             startScreenStream,
             stopScreenStream,
             getScreenStream,
+
             createP2PConnection,
 
             connectedUsers,

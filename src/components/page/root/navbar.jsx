@@ -4,6 +4,7 @@ import { Ring } from "ldrs/react";
 import "ldrs/react/Ring.css";
 import { motion, AnimatePresence } from "framer-motion";
 import { useEffect, useState } from "react";
+import { v7 } from "uuid";
 
 // Lib Imports
 import { cn, sha256, log } from "@/lib/utils";
@@ -14,8 +15,7 @@ import { usePageContext } from "@/components/context/page";
 import { useMessageContext } from "@/components/context/messages";
 import { useUsersContext } from "@/components/context/users";
 import { useThemeProvider } from "@/components/context/theme";
-import { useEncryptionContext } from "@/components/context/encryption";
-import { useWebSocketContext } from "@/components/context/websocket";
+import { useCallContext } from "@/components/context/call";
 
 // Components
 import { SidebarTrigger } from "@/components/ui/sidebar";
@@ -47,12 +47,11 @@ let itemVariants = {
 // Main
 export function Navbar() {
     let { sidebarRightSide } = useThemeProvider();
-    let { get, startVoiceCall, stopVoiceCall } = useUsersContext();
+    let { get } = useUsersContext();
     let { open } = useSidebar();
     let { setPage } = usePageContext();
     let { failedMessages, navbarLoading, navbarLoadingMessage, receiver } = useMessageContext();
-    let { encrypt_base64_using_pubkey } = useEncryptionContext();
-    let { send } = useWebSocketContext();
+    let { setCallId, setCallSecret, startCall } = useCallContext();
 
     let [receiverDisplay, setReceiverDisplay] = useState("")
 
@@ -194,8 +193,9 @@ export function Navbar() {
                                 className="w-9 h-9"
                                 variant="outline"
                                 onClick={async () => {
-                                    await stopVoiceCall();
-                                    startVoiceCall(undefined, undefined, true)
+                                    setCallId(v7())
+                                    setCallSecret(v7())
+                                    startCall(true)
                                 }}
                             >
                                 <Icon.PhoneCall />

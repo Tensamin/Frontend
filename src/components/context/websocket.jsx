@@ -71,15 +71,6 @@ export let WebSocketProvider = ({ children }) => {
           setUserState(message.data.user_id, message.data.user_state)
           break;
 
-        case "new_call":
-          setGettingCalledData({
-            sender_id: message.data.sender_id,
-            call_id: message.data.call_id,
-            call_secret: await decrypt_base64_using_privkey(message.data.call_secret, privateKey),
-          })
-          setGettingCalled(true)
-          break;
-
         default:
           break;
       }
@@ -239,6 +230,7 @@ export let WebSocketProvider = ({ children }) => {
   return connected && ((identified && !identificationFailed) || forceLoad) ? (
     <WebSocketContext.Provider value={{
       send,
+      wsSend: send,
       message: lastMessage,
       connected,
       identified,
