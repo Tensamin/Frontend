@@ -9,7 +9,6 @@ import {
   cn,
   statusColors,
   convertDisplayNameToInitials,
-  capitalizeFirstLetter,
   formatUserStatus,
 } from "@/lib/utils"
 
@@ -20,7 +19,6 @@ import { useUsersContext } from "@/components/context/users"
 import {
   Avatar,
   AvatarFallback,
-  AvatarImage
 } from "@/components/ui/avatar"
 import {
   Tooltip,
@@ -28,31 +26,36 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Badge } from "@/components/ui/badge"
-import { VoiceControls } from "@/components/page/voice/controls"
 
-// Main
-export function UserModal({ display, username, avatar, status }) {
-  let [actAvatar, setAvatar] = useState(avatar)
-  let { currentCall } = useUsersContext();
+// User Modal for user
+export function UserModal({ id, state }) {
+  let [avatar, setAvatar] = useState("...");
+  let [username, setUsername] = useState("...");
+  let [display, setDisplay] = useState("...");
+  let { get } = useUsersContext();
 
   useEffect(() => {
-    setAvatar(avatar)
-  }, [avatar])
+    if (id !== "") get(id)
+      .then(data => {
+        setAvatar(data.avatar);
+        setUsername(data.username);
+        setDisplay(data.display);
+      });
+  }, [id])
 
   return (
     <div className="rounded-xl flex flex-col items-center p-3 gap-3 justify-center">
       <div className="flex w-full gap-3 items-center">
         <div className="relative w-[35px] h-[35px]">
-          {actAvatar !== "..." ? (
+          {avatar !== "..." ? (
             <Avatar className="bg-accent/50">
-              {actAvatar !== "" ? (
+              {avatar !== "" ? (
                 <Image
                   className="w-auto h-auto object-fill"
                   data-slot="avatar-image"
                   width={36}
                   height={36}
-                  src={actAvatar}
+                  src={avatar}
                   alt=""
                   onError={() => {
                     setAvatar("")
@@ -68,68 +71,88 @@ export function UserModal({ display, username, avatar, status }) {
           )}
           <Tooltip>
             <TooltipTrigger asChild className="absolute bottom-0 right-0 w-[15px] h-[15px]">
-              <div onClick={() => toast("Huhu")} className={cn("cursor-pointer rounded-full border-3 border-card", statusColors[status] || "bg-white")} />
+              <div onClick={() => toast("Huhu")} className={cn("cursor-pointer rounded-full border-3 border-card", statusColors[state] || "bg-white")} />
             </TooltipTrigger>
             <TooltipContent className="border-1">
-              <p>{formatUserStatus(status)}</p>
+              <p>{formatUserStatus(state)}</p>
             </TooltipContent>
           </Tooltip>
         </div>
         <div className="w-full">
-          <div className="text-[14px] font-bold">{display !== "..." ? (
-            <p>{display}</p>
-          ) : (
-            <Skeleton className="mr-20"><p className="invisible">🥴</p></Skeleton>
-          )}</div>
-          <div className="text-[12px] font-bold text-foreground/67">{username !== "..." ? (
-            <p>{username}</p>
-          ) : (
-            <Skeleton className="mr-8 mt-1"><p className="invisible">🥴</p></Skeleton>
-          )}</div>
+          <div className="text-[14px] font-bold">
+            {display !== "..." ?
+              <p>{display}</p>
+              :
+              <Skeleton className="mr-20"><p className="invisible">🥴</p></Skeleton>
+            }
+          </div>
+          <div className="text-[12px] font-bold text-foreground/67">
+            {username !== "..." ?
+              <p>{username}</p>
+              :
+              <Skeleton className="mr-8 mt-1"><p className="invisible">🥴</p></Skeleton>
+            }
+          </div>
         </div>
       </div>
-      {currentCall.connected ? (
-        <VoiceControls key={currentCall.id}/>
-      ) : null}
     </div>
   )
 }
 
-export function SmallUserModal({ display, username, avatar, status, state, showIotaStatus }) {
-  let [actAvatar, setAvatar] = useState(avatar)
+// User Modal for Sidebar Chats
+export function SmallUserModal({ id, state, showIotaStatus = false, forceLoad = false }) {
+  let [avatar, setAvatar] = useState("...");
+  let [username, setUsername] = useState("...");
+  let [display, setDisplay] = useState("...");
+  let [status, setStatus] = useState("...");
+  let { get } = useUsersContext();
+
+  useEffect(() => {
+    if (id !== "") get(id)
+      .then(data => {
+        setAvatar(data.avatar);
+        setUsername(data.username);
+        setDisplay(data.display);
+        setStatus(data.status);
+      });
+  }, [id])
 
   return (
     <div className="rounded-xl flex items-center h-12 pl-3 gap-3">
-      {avatar !== "notAllowed" ? (
+      {!forceLoad && (
         <div className="flex-shrink-0">
           <div className="relative w-[27px] h-[27px] mb-2">
-            <Avatar className="bg-accent/50">
-              {avatar !== "" ? (
-                <Image
-                  className="w-auto h-auto object-fill"
-                  data-slot="avatar-image"
-                  width={36}
-                  height={36}
-                  src={actAvatar}
-                  alt=""
-                  onError={() => {
-                    setAvatar("")
-                  }}
-                />
-              ) : null}
-              <AvatarFallback>
-                {convertDisplayNameToInitials(username)}
-              </AvatarFallback>
-            </Avatar>
+            {avatar !== "..." ? (
+              <Avatar className="bg-accent/50">
+                {avatar !== "" && (
+                  <Image
+                    className="w-auto h-auto object-fill"
+                    data-slot="avatar-image"
+                    width={36}
+                    height={36}
+                    src={avatar}
+                    alt=""
+                    onError={() => {
+                      setAvatar("")
+                    }}
+                  />
+                )}
+                <AvatarFallback>
+                  {convertDisplayNameToInitials(username)}
+                </AvatarFallback>
+              </Avatar>
+            ) : (
+              <Skeleton className="rounded-full size-8" />
+            )}
             <Tooltip>
               <TooltipTrigger asChild className="absolute -bottom-2 -right-2 w-[15px] h-[15px]">
-                {state === "none" ? (
+                {state === "none" ?
                   <div className="cursor-pointer rounded-full border-3 border-card bg-card">
                     <Skeleton className="bg-white w-full h-full" />
                   </div>
-                ) : (
+                  :
                   <div className={cn("cursor-pointer rounded-full border-3 border-card", statusColors[state] || "bg-white")} />
-                )}
+                }
               </TooltipTrigger>
               <TooltipContent className="border-1">
                 <p>{formatUserStatus(state)}</p>
@@ -137,14 +160,17 @@ export function SmallUserModal({ display, username, avatar, status, state, showI
             </Tooltip>
           </div>
         </div>
-
-      ) : null}
+      )}
 
       <div className="min-w-0 flex-grow">
         <div className={`${showIotaStatus && state !== "IOTA_OFFLINE" ? "flex" : ""} gap-2 text-[15px] overflow-hidden whitespace-nowrap text-overflow-ellipsis`}>
           <div className="flex flex-col">
             <div className="flex gap-2">
-              <p>{display}</p>
+              {display !== "..." || forceLoad ?
+                <p>{forceLoad ? "Debug Mode" : display}</p>
+                :
+                <Skeleton className="mr-20"><p className="invisible">🥴</p></Skeleton>
+              }
               {showIotaStatus && state !== "IOTA_OFFLINE" ? (
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -165,7 +191,7 @@ export function SmallUserModal({ display, username, avatar, status, state, showI
                   <div className="scale-90 origin-top-left overflow-ellipsis"><Icon.Activity /></div> Iota is Offline
                 </div>
               ) : (
-                <p className="text-xs text-foreground/75">{status}</p>
+                <p className="text-xs text-foreground/75">{forceLoad ? "Chats wont load!" : status}</p>
               )}
             </div>
           </div>
@@ -175,77 +201,70 @@ export function SmallUserModal({ display, username, avatar, status, state, showI
   );
 }
 
-export function SmallUserModalSkeleton() {
-  return (
-    <div className="rounded-xl flex items-center h-12 pl-3 gap-3">
-      <div className="flex-shrink-0">
-        <div className="relative w-[27px] h-[27px] mb-2">
-          <Skeleton className="rounded-full size-8" />
-          <Tooltip>
-            <TooltipTrigger asChild className="absolute -bottom-2 -right-2 w-[15px] h-[15px]">
-              <div className="cursor-pointer rounded-full border-3 border-card bg-card">
-                <Skeleton className="bg-white w-full h-full" />
-              </div>
-            </TooltipTrigger>
-            <TooltipContent className="border-1">
-              <p>None</p>
-            </TooltipContent>
-          </Tooltip>
-        </div>
-      </div>
+export function MiniUserModal({ id }) {
+  let [avatar, setAvatar] = useState("...");
+  let [username, setUsername] = useState("...");
+  let [display, setDisplay] = useState("...");
+  let { get } = useUsersContext();
 
-      <div className="min-w-0 flex-grow">
-        <div className="text-[15px] overflow-hidden whitespace-nowrap text-overflow-ellipsis">
-          <Skeleton><p className="invisible">🥴</p></Skeleton>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-export function MiniUserModal({ display, username, avatar, loading = false }) {
-  let [actAvatar, setAvatar] = useState(avatar)
+  useEffect(() => {
+    if (id !== "") get(id)
+      .then(data => {
+        setAvatar(data.avatar);
+        setUsername(data.username);
+        setDisplay(data.display);
+      });
+  }, [id])
 
   return (
     <div className="rounded-xl flex items-center h-7 gap-3">
-      {loading ? (
-        <>
+      <>
+        {avatar !== "..." ? (
+          <Avatar className="bg-accent/50">
+            {avatar !== "" ? (
+              <Image
+                className="w-auto h-auto object-fill"
+                data-slot="avatar-image"
+                width={36}
+                height={36}
+                src={avatar}
+                alt=""
+                onError={() => {
+                  setAvatar("")
+                }}
+              />
+            ) : null}
+            <AvatarFallback>
+              {convertDisplayNameToInitials(username)}
+            </AvatarFallback>
+          </Avatar>
+        ) : (
           <Skeleton className="rounded-full size-8" />
-          <Skeleton className="text-[15px]"><p>A</p></Skeleton>
-        </>
-      ) : (
-        <>
-          {avatar !== "..." ? (
-            {/*<Avatar className="bg-accent/50 w-[36px] h-[36px]">
-              {actAvatar !== "" ? (
-                <Image
-                  className="w-auto h-auto object-fill"
-                  data-slot="avatar-image"
-                  width={36}
-                  height={36}
-                  src={actAvatar}
-                  alt=""
-                  onError={() => {
-                    setAvatar("")
-                  }}
-                />
-              ) : null}
-              <AvatarFallback className="text-[16px]">
-                {convertDisplayNameToInitials(username)}
-              </AvatarFallback>
-            </Avatar>*/}
-          ) : (
-            <Skeleton className="rounded-full size-8" />
-          )}
+        )}
+        {display !== "..." ?
           <p className="text-[15px] overflow-hidden whitespace-nowrap text-overflow-ellipsis">{display}</p>
-        </>
-      )}
+          :
+          <Skeleton className="mr-20"><p className="invisible">🥴</p></Skeleton>
+        }
+      </>
     </div>
   );
 }
 
-export function MiniMiniUserModal({ display, username, avatar }) {
-  let [actAvatar, setAvatar] = useState(avatar)
+export function MiniMiniUserModal({ id }) {
+  let [avatar, setAvatar] = useState("...");
+  let [username, setUsername] = useState("...");
+  let [display, setDisplay] = useState("...");
+  let { get } = useUsersContext();
+
+  useEffect(() => {
+    if (id !== "") get(id)
+      .then(data => {
+        setAvatar(data.avatar);
+        setUsername(data.username);
+        setDisplay(data.display);
+      });
+  }, [id])
 
   return (
     <div className="rounded-xl flex items-center h-5.5 w-5.5 m-1">
@@ -259,7 +278,7 @@ export function MiniMiniUserModal({ display, username, avatar }) {
                   data-slot="avatar-image"
                   width={30}
                   height={30}
-                  src={actAvatar}
+                  src={avatar}
                   alt=""
                   onError={() => {
                     setAvatar("")
@@ -273,7 +292,11 @@ export function MiniMiniUserModal({ display, username, avatar }) {
           ) : null}
         </TooltipTrigger>
         <TooltipContent>
-          <p>{display}</p>
+          {display !== "..." ?
+            <p>{display}</p>
+            :
+            <Skeleton className="mr-20"><p className="invisible">🥴</p></Skeleton>
+          }
         </TooltipContent>
       </Tooltip>
     </div>

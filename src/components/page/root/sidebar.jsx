@@ -1,11 +1,3 @@
-"use client";
-
-// Package Imports
-import { useState, useEffect } from "react";
-
-// Lib Imports
-import ls from "@/lib/localStorageManager";
-
 // Context Imports
 import { useUsersContext } from "@/components/context/users";
 import { useThemeProvider } from "@/components/context/theme";
@@ -26,20 +18,8 @@ import { Chats } from "@/components/page/root/chats"
 
 // Main
 export function AppSidebar(props) {
-  let { get, forceLoad, ownUuid } = useUsersContext();
+  let { forceLoad, ownUuid } = useUsersContext();
   let { sidebarRightSide } = useThemeProvider();
-  let [username, setUsername] = useState("...")
-  let [display, setDisplay] = useState("...")
-  let [avatar, setAvatar] = useState("...")
-
-  useEffect(() => {
-    get(ownUuid)
-      .then(data => {
-        setUsername(data.username)
-        setDisplay(data.display)
-        setAvatar(data.avatar)
-      })
-  }, [])
 
   return (
     <Sidebar side={sidebarRightSide ? "right" : "left"} variant="inset" {...props}>
@@ -48,10 +28,8 @@ export function AppSidebar(props) {
           <SidebarMenuItem className="border-1 bg-card rounded-xl">
             <SidebarMenuButton size="lg" asChild>
               <UserModal
-                display={display}
-                username={username}
-                avatar={avatar}
-                status="ONLINE"
+                id={ownUuid}
+                state="ONLINE"
               />
             </SidebarMenuButton>
           </SidebarMenuItem>

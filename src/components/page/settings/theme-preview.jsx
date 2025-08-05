@@ -37,10 +37,8 @@ export function Preview({ style }) {
               <div className="border-1 bg-card rounded-xl flex flex-col">
                 <SidebarMenuButton size="lg" asChild>
                   <UserModal
-                    display_name="xLagging"
-                    username="xlagging"
-                    avatar="https://github.com/UrTheProblem.png"
-                    status="online"
+                    id="01984d57-c556-725b-82b5-cccbbe742117"
+                    state="ONLINE"
                   />
                 </SidebarMenuButton>
               </div>
