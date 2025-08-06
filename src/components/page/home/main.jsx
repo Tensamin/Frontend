@@ -208,7 +208,7 @@ export function Main() {
 
                     {connectedUsers.map((id) => (
                         <div key={id}>
-                            <Button
+                            <div
                                 disabled={!streamingUsers.includes(id) || stream}
                                 onClick={() => {
                                     voiceSend("watch_stream", {
@@ -222,7 +222,7 @@ export function Main() {
                             >
                                 {id}
                                 <VideoStream peerConnection={getScreenStream(id)}/>
-                            </Button>
+                            </div>
                         </div>
                     ))}
 

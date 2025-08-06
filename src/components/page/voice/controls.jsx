@@ -45,29 +45,14 @@ export function VoiceControls() {
 
     function changeStreamRefresh(event) {
         setStreamRefresh(event);
-        if (stream) {
-            stopScreenStream();
-            startScreenStream();
-            toast.info("Restarted Stream!");
-        }
     }
 
     function changeStreamResolution(event) {
         setStreamResolution(event);
-        if (stream) {
-            stopScreenStream();
-            startScreenStream();
-            toast.info("Restarted Stream!");
-        }
     }
 
     function changeStreamAudio(event) {
         setStreamAudio(event);
-        if (stream) {
-            stopScreenStream();
-            startScreenStream();
-            toast.info("Restarted Stream!");
-        }
     }
 
     return (

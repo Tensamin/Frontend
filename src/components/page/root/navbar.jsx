@@ -192,10 +192,10 @@ export function Navbar() {
                             <Button
                                 className="w-9 h-9"
                                 variant="outline"
-                                onClick={async () => {
-                                    setCallId(v7())
-                                    setCallSecret(v7())
-                                    startCall(true)
+                                onClick={() => {
+                                    setCallId(v7());
+                                    setCallSecret(v7());
+                                    startCall(true);
                                 }}
                             >
                                 <Icon.PhoneCall />

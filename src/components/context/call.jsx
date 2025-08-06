@@ -85,17 +85,21 @@ export let CallProvider = ({ children }) => {
 
     let micRefs = useRef(new Map());
     let screenRefs = useRef(new Map());
+    let watchingRefs = useRef(new Map());
+    let videoRefs = useRef(new Map());
     let audioRefs = useRef(new Map());
     let audioStreamsRefs = useRef(new Map());
 
     let [connectedUsers, setConnectedUsers] = useState([]);
     let [streamingUsers, setStreamingUsers] = useState([]);
+    let [watchingUsers, setWatchingUsers] = useState([]);
 
     function reset() {
         micStreamRef.current?.getTracks().forEach(track => track.stop());
         screenStreamRef.current?.getTracks().forEach(track => track.stop());
         micRefs.current.clear();
         screenRefs.current.clear();
+        watchingRefs.current.clear();
         audioRefs.current.clear();
         audioStreamsRefs.current.clear();
         setConnectedUsers([]);
@@ -104,7 +108,7 @@ export let CallProvider = ({ children }) => {
         setCallId(null);
         setCallSecret(null);
         setIdentified(false);
-        setClientPing("?");
+        setClientPing(0);
         setConnected(false);
     }
 
@@ -160,7 +164,7 @@ export let CallProvider = ({ children }) => {
         if (!id) {
             return screenStreamRef.current;
         }
-        return screenRefs.current.get(id);
+        return videoRefs.current.get(id);
     }, []);
 
     // Handle WebSocket Messages
@@ -183,6 +187,12 @@ export let CallProvider = ({ children }) => {
                     screenRefs.current.delete(message.data.user_id);
                 }
 
+                if (watchingRefs.current.has(message.data.user_id)) {
+                    let screenPc = watchingRefs.current.get(message.data.user_id);
+                    screenPc.close();
+                    watchingRefs.current.delete(message.data.user_id);
+                }
+
                 if (micRefs.current.has(message.data.user_id)) {
                     let micPc = micRefs.current.get(message.data.user_id);
                     micPc.close();
@@ -200,6 +210,7 @@ export let CallProvider = ({ children }) => {
             case "webrtc_sdp":
                 let sdp_sender = message.data.sender_id;
                 let sdp_isScreenShare = message.data.screen_share;
+                let sdp_isWatcher = message.data.watcher;
                 let sdp_payload;
 
                 try {
@@ -215,7 +226,11 @@ export let CallProvider = ({ children }) => {
 
                 let sdp_pc;
                 if (sdp_isScreenShare) {
-                    sdp_pc = screenRefs.current.get(sdp_sender);
+                    if (sdp_isWatcher) {
+                        sdp_pc = watchingRefs.current.get(sdp_sender)
+                    } else {
+                        sdp_pc = screenRefs.current.get(sdp_sender);
+                    }
                 } else {
                     sdp_pc = micRefs.current.get(sdp_sender);
                 }
@@ -246,6 +261,7 @@ export let CallProvider = ({ children }) => {
                                 callSecret,
                             ),
                             screen_share: sdp_isScreenShare,
+                            watcher: !sdp_isWatcher,
                             receiver_id: sdp_sender,
                         }, false)
 
@@ -267,6 +283,7 @@ export let CallProvider = ({ children }) => {
             case "webrtc_ice":
                 let ice_sender = message.data.sender_id;
                 let ice_isScreenShare = message.data.screen_share;
+                let ice_isWatcher = message.data.watcher;
                 let ice_payload;
 
                 try {
@@ -278,7 +295,11 @@ export let CallProvider = ({ children }) => {
 
                 let ice_pc;
                 if (ice_isScreenShare) {
-                    ice_pc = screenRefs.current.get(ice_sender);
+                    if (ice_isWatcher) {
+                        ice_pc = watchingRefs.current.get(ice_sender);
+                    } else {
+                        ice_pc = screenRefs.current.get(ice_sender);
+                    }
                 } else {
                     ice_pc = micRefs.current.get(ice_sender);
                 }
@@ -320,7 +341,8 @@ export let CallProvider = ({ children }) => {
                     createP2PConnection(message.data.sender_id, true, true);
                 } else {
                     logFunction("User allowed you to watch them", "info")
-                    createP2PConnection(message.data.sender_id, false, true);
+                    await createP2PConnection(message.data.sender_id, false, true);
+                    setWatchingUsers((prev) => [...prev, message.data.sender_id])
                 }
                 break;
 
@@ -352,34 +374,6 @@ export let CallProvider = ({ children }) => {
                     audio: true,
                 });
                 setConnectedUsers([ownUuid]);
-                if (inviteOnNewCall) {
-                    let publicKey;
-                    if (receiver !== "") {
-                        publicKey = await get(receiver).then(data => { return data.public_key })
-                        await wsSend(
-                            "call_invite",
-                            {
-                                message: `Invited ${receiver} to the call ${callId}`,
-                                log_level: 0,
-                            },
-                            {
-                                receiver_id: receiver,
-                                call_id: callId,
-                                call_secret: await encrypt_base64_using_pubkey(
-                                    btoa(callSecret),
-                                    publicKey,
-                                ),
-                                call_secret_sha: await sha256(callSecret),
-                            },
-                        ).then(data => {
-                            if (data.type !== "error") {
-                                log("Sent Invite", "success");
-                            } else {
-                                log(data.log.message, "showError");
-                            }
-                        })
-                    }
-                }
             },
             onClose: () => {
                 logFunction("Call disconnected", "info");
@@ -472,6 +466,8 @@ export let CallProvider = ({ children }) => {
                 audio: streamAudio
             });
 
+            console.log(stream)
+
             screenStreamRef.current = stream;
             setStream(true);
 
@@ -492,7 +488,7 @@ export let CallProvider = ({ children }) => {
             }, false);
 
             async function addScreenShareToPeers() {
-                let addPromises = Array.from(screenRefs.current.entries()).map(async ([id, pc]) => {
+                let addPromises = Array.from(watchingRefs.current.entries()).map(async ([id, pc]) => {
                     try {
                         if (pc.connectionState !== 'connected' || pc.signalingState !== 'stable') {
                             return;
@@ -560,7 +556,7 @@ export let CallProvider = ({ children }) => {
             track.stop();
         });
 
-        let removePromises = Array.from(screenRefs.current.entries()).map(async ([id, pc]) => {
+        let removePromises = Array.from(watchingRefs.current.entries()).map(async ([id, pc]) => {
             try {
                 if (pc.connectionState === 'closed') return;
 
@@ -609,13 +605,43 @@ export let CallProvider = ({ children }) => {
         setStream(false);
     }, [ownUuid, send])
 
+    // Update Stream
+    let updateStream = useCallback(async () => {
+        if (stream) {
+            let tracks = screenStreamRef.current.getVideoTracks();
+            if (tracks.length > 0) {
+                let track = tracks[0]
+                let newConstraints = {
+                    video: {
+                        frameRate: { ideal: streamRefresh, max: streamRefresh },
+                        width: { ideal: streamResolution.split("x")[0], max: streamResolution.split("x")[0] },
+                        height: { ideal: streamResolution.split("x")[1], max: streamResolution.split("x")[1] }
+                    },
+                    audio: streamAudio
+                }
+                try {
+                    await track.applyConstraints(newConstraints);
+                } catch (err) {
+                    log(err.message, "showError")
+                }
+            }
+        }
+    }, [screenStreamRef.current, stream])
+
     // Create P2P Connection
     let createP2PConnection = useCallback(async (id, isInitiator = false, isScreenShare = false) => {
         // Handle Existing Connections
         if (isScreenShare) {
-            if (screenRefs.current.has(id)) {
-                logFunction("Reusing existing screen share connection", "debug", "Voice WebSocket:");
-                return screenRefs.current.get(id);
+            if (isInitiator) {
+                if (watchingRefs.current.has(id)) {
+                    logFunction("Reusing existing watching connection", "debug", "Voice WebSocket:");
+                    return watchingRefs.current.get(id);
+                }
+            } else {
+                if (screenRefs.current.has(id)) {
+                    logFunction("Reusing existing screen connection", "debug", "Voice WebSocket:");
+                    return screenRefs.current.get(id);
+                }
             }
         } else {
             if (micRefs.current.has(id)) {
@@ -628,7 +654,11 @@ export let CallProvider = ({ children }) => {
         let pc = new RTCPeerConnection(webrtc_servers);
 
         if (isScreenShare) {
-            screenRefs.current.set(id, pc);
+            if (isInitiator) {
+                watchingRefs.current.set(id, pc);
+            } else {
+                screenRefs.current.set(id, pc);
+            }
         } else {
             micRefs.current.set(id, pc);
         }
@@ -659,6 +689,7 @@ export let CallProvider = ({ children }) => {
                         callSecret,
                     ),
                     screen_share: isScreenShare,
+                    watcher: !isInitiator,
                     receiver_id: id,
                 }, false);
             }
@@ -668,11 +699,17 @@ export let CallProvider = ({ children }) => {
         pc.ontrack = (event) => {
             event.track.onended = async () => {
                 if (isScreenShare) {
-                    let stream = screenRefs.current.get(id);
-                    if (stream) {
-                        stream.removeTrack(event.track);
-                        setStreamingUsers((prev) => prev.filter(userId => userId !== id));
-                    };
+                    if (isInitiator) {
+                        let stream = watchingRefs.current.get(id);
+                        if (stream) {
+                            stream.removeTrack(event.track);
+                        };
+                    } else {
+                        let stream = screenRefs.current.get(id);
+                        if (stream) {
+                            stream.removeTrack(event.track);
+                        };
+                    }
                 } else {
                     let stream = audioStreamsRefs.current.get(id);
                     if (stream) {
@@ -682,22 +719,15 @@ export let CallProvider = ({ children }) => {
             }
 
             // Handle Tracks
-            if (isScreenShare) {
-                let stream = screenRefs.current.get(id);
+            if (isScreenShare && !isInitiator) {
+                let stream = videoRefs.current.get(id);
                 if (!stream) {
                     stream = new MediaStream();
-                    screenRefs.current.set(id, stream);
+                    videoRefs.current.set(id, stream);
                 }
 
                 event.track.enabled = true;
                 stream.addTrack(event.track);
-
-                setStreamingUsers((prev) => {
-                    if (!prev.includes(id)) {
-                        return [...prev, id];
-                    }
-                    return prev;
-                });
             } else {
                 let stream = audioStreamsRefs.current.get(id);
                 if (!stream) {
@@ -725,7 +755,7 @@ export let CallProvider = ({ children }) => {
 
             if (isScreenShare) {
                 send("watch_stream", {
-                    message: `${id} wants to watch ${ownUuid}`,
+                    message: `${ownUuid} allowed ${id} to watch`,
                     log_level: 0,
                 }, {
                     want_to_watch: false,
@@ -765,6 +795,7 @@ export let CallProvider = ({ children }) => {
                             callSecret,
                         ),
                         screen_share: isScreenShare,
+                        watcher: false,
                         receiver_id: id,
                     }, false);
                 } finally {
@@ -776,7 +807,11 @@ export let CallProvider = ({ children }) => {
         pc.onconnectionstatechange = () => {
             if (pc.connectionState === "disconnected" || pc.connectionState === "failed") {
                 if (isScreenShare) {
-                    screenRefs.current.delete(id);
+                    if (isInitiator) {
+                        watchingRefs.current.delete(id);
+                    } else {
+                        screenRefs.current.delete(id);
+                    }
                 } else {
                     micRefs.current.delete(id);
                     audioRefs.current.delete(id);
@@ -791,8 +826,6 @@ export let CallProvider = ({ children }) => {
                     return prev;
                 });
 
-                // If this is a mic connection and we already have an audio stream, 
-                // we need to ensure the audio element gets the stream when it's created
                 if (!isScreenShare) {
                     setTimeout(() => {
                         let audioElement = audioRefs.current.get(id);
@@ -809,12 +842,12 @@ export let CallProvider = ({ children }) => {
         };
 
         return pc;
-    }, [send, webrtc_servers, encrypt_base64_using_aes, callSecret, setStreamingUsers]);
+    }, [send, webrtc_servers, encrypt_base64_using_aes, callSecret]);
 
     // Start Call
     let startCall = useCallback(async (shouldInviteReceiver) => {
         setCreateCall(true);
-        setInviteOnNewCall(true);
+        setInviteOnNewCall(shouldInviteReceiver);
     }, [])
 
     // End Call
@@ -871,7 +904,7 @@ export let CallProvider = ({ children }) => {
                         private_key_hash: privateKeyHash,
                         call_secret_sha: await sha256(callSecret),
                     })
-                    .then(data => {
+                    .then(async data => {
                         if (data.type === "identification_response") {
                             setIdentified(true);
                             let newStreamingUsers = [];
@@ -880,7 +913,35 @@ export let CallProvider = ({ children }) => {
                                     newStreamingUsers.push(id);
                                 }
                             });
-                            setStreamingUsers(newStreamingUsers)
+                            setStreamingUsers(newStreamingUsers);
+                            if (inviteOnNewCall) {
+                                let publicKey;
+                                if (receiver !== "") {
+                                    publicKey = await get(receiver).then(data => { return data.public_key })
+                                    await wsSend(
+                                        "call_invite",
+                                        {
+                                            message: `Invited ${receiver} to the call ${callId}`,
+                                            log_level: 0,
+                                        },
+                                        {
+                                            receiver_id: receiver,
+                                            call_id: callId,
+                                            call_secret: await encrypt_base64_using_pubkey(
+                                                btoa(callSecret),
+                                                publicKey,
+                                            ),
+                                            call_secret_sha: await sha256(callSecret),
+                                        },
+                                    ).then(data => {
+                                        if (data.type !== "error") {
+                                            log("Sent Invite", "success");
+                                        } else {
+                                            log(data.log.message, "showError");
+                                        }
+                                    })
+                                }
+                            };
                         } else {
                             setIdentified(false);
                         }
@@ -901,6 +962,11 @@ export let CallProvider = ({ children }) => {
             });
         }
     }, [mute]);
+
+    // Update Stream when Refresh, Resolution or Audio changes
+    useEffect(() => {
+        updateStream();
+    }, [updateStream, streamRefresh, streamResolution, streamAudio])
 
     // Unmount Cleanup
     useEffect(() => {
@@ -950,6 +1016,8 @@ export let CallProvider = ({ children }) => {
             startScreenStream,
             stopScreenStream,
             getScreenStream,
+            watchingUsers,
+            setWatchingUsers,
 
             createP2PConnection,
 

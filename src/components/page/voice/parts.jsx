@@ -73,30 +73,25 @@ export function GettingCalled() {
     )
 }
 
-export function VideoStream({ peerConnection, local = false, className }) {
+export function VideoStream({ id, local = false, className }) {
     let videoRef = useRef(null);
+    let { getScreenStream } = useCallContext();
     let [mediaStream, setMediaStream] = useState(null);
+    let [update, setUpdate] = useState(0);
 
     useEffect(() => {
-        if (!peerConnection) {
-            return;
-        }
-
         if (local) {
-            console.log(peerConnection)
-            setMediaStream(peerConnection)
+            setMediaStream(getScreenStream());
         } else {
-            let handleTrack = (event) => {
-                setMediaStream(event.streams[0]);
-            };
-
-            peerConnection.addEventListener("track", handleTrack);
-
-            return () => {
-                peerConnection.removeEventListener("track", handleTrack);
-            };
+            let track = getScreenStream(id);
+            if (typeof(track) !== "undefined") {
+                setMediaStream(getScreenStream(id));
+            } else {
+                setUpdate(update + 1);
+            }
+            setMediaStream(getScreenStream(id));
         }
-    }, [peerConnection, local]);
+    }, [local, update]);
 
     useEffect(() => {
         if (videoRef.current && mediaStream) {

@@ -77,32 +77,52 @@ export function Main() {
           </CommandList>
         </CommandDialog>
       </div>
-      <div className="flex">
-        {connectedUsers.map((user) => (
-          <button
-            key={user}
+      <div className="flex flex-col h-full justify-center">
+        {focused !== "" && (
+          <div
+            className="relative aspect-video overflow-hidden w-full h-full"
+            key={focused}
             onClick={() => {
-              setFocused(user)
+              setFocused("")
             }}
           >
-            <VoiceModal
-              id={user}
-              streams={streamingUsers.includes(user)}
-              focused={focused === user}
-            />
-          </button>
-        ))}
+            <div className="absolute inset-0 h-full w-full object-contain">
+              <VoiceModal
+                id={focused}
+                streams={streamingUsers.includes(focused)}
+                focused
+              />
+            </div>
+          </div>
+        )}
+        <div className="flex gap-2">
+          {connectedUsers.map((user) => {
+            return focused === user ? null : (
+              <div
+                key={user}
+                onClick={() => {
+                  setFocused(user)
+                }}
+              >
+                <VoiceModal
+                  id={user}
+                  streams={streamingUsers.includes(user)}
+                />
+              </div>
+            )
+          })}
+        </div>
       </div>
     </div>
   );
 };
 
-function VoiceModal({ id, streams = false, focused }) {
+function VoiceModal({ id, streams = false, focused = false }) {
   let [avatar, setAvatar] = useState("...");
   let [username, setUsername] = useState("...");
   let [display, setDisplay] = useState("...");
   let { get, ownUuid } = useUsersContext();
-  let { getScreenStream } = useCallContext();
+  let { watchingUsers, voiceSend } = useCallContext();
 
   useEffect(() => {
     if (id !== "") get(id)
@@ -116,12 +136,29 @@ function VoiceModal({ id, streams = false, focused }) {
   return (
     <Card className="p-2 w-auto rounded-3xl">
       <div className="flex flex-col gap-2">
-        {streams && (
-          <div className="w-[240px] h-[135px]">
-            <VideoStream className="rounded-2xl border-1" peerConnection={id === ownUuid ? getScreenStream() : getScreenStream(id)} local={id === ownUuid} />
+        {streams && id !== ownUuid && (
+          <div className={focused ? "w-full h-full" : "w-[240px] h-[135px]"}>
+            {watchingUsers.includes(id) ? (
+              <VideoStream className="rounded-2xl border-1" id={id} key={id}/>
+            ) : (
+              <Button
+                className=""
+                onClick={() => {
+                  voiceSend("watch_stream", {
+                    message: `${ownUuid} wants to watch ${id}`,
+                    log_level: 0,
+                  }, {
+                    want_to_watch: true,
+                    receiver_id: id,
+                  }, false);
+                }}
+              >
+                Watch Stream...
+              </Button>
+            )}
           </div>
         )}
-        <div className="flex items-center gap-2 p-2 border-1 rounded-2xl bg-input/20">
+        <div className="flex items-center gap-2 p-2 border rounded-2xl bg-input/30 border-input">
           <div>
             {avatar !== "..." ? (
               <Avatar className="size-8 bg-accent/50">
