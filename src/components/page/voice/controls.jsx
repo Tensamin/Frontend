@@ -58,8 +58,8 @@ export function VoiceControls() {
     return (
         <Card className="flex w-full flex-col p-2 gap-2">
             {stream && (
-                <div className="">
-                    <VideoStream peerConnection={getScreenStream()} local={true} className="rounded-lg border-1" />
+                <div className="aspect-16/9">
+                    <VideoStream local={true} className="rounded-lg border-1" onPlay={() => {}} />
                 </div>
             )}
 
