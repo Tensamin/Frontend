@@ -857,8 +857,12 @@ export let CallProvider = ({ children }) => {
 
     // Update Connected State
     useEffect(() => {
-        setConnected(readyState === ReadyState.OPEN);
-    }, [readyState]);
+        if (micStreamRef.current && readyState === ReadyState.OPEN) {
+            setConnected(true);
+        } else {
+            setConnected(false);
+        }
+    }, [readyState, micStreamRef.current]);
 
     // Pings
     useEffect(() => {

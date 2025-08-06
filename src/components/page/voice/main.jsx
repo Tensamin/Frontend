@@ -77,29 +77,30 @@ export function Main() {
           </CommandList>
         </CommandDialog>
       </div>
-      
-      <div className="flex flex-col flex-1 w-full">
+      <div className="flex flex-col flex-1 w-full p-4">
         {focused === "" ? (
-          <div className={`
-            ${connectedUsers.length > 1 ? 
-            "grid grid-cols-"+Math.round(Math.sqrt(connectedUsers.length)+0.5) : ""}
-            gap-4 p-4 h-full overflow-auto
-          `}>
-            
-            {connectedUsers.map((user) => (
-              <div key={user} className="h-full">
-                <VoiceModal
-                  id={user}
-                  streams={streamingUsers.includes(user)}
-                  onFocus={(focus) => {
-                    if (focus) {
-                      setFocused(user);
-                    }
-                  }}
-                  focused={true}
-                />
-              </div>
-            ))}
+          <div className="flex justify-center items-center">
+            <div className={connectedUsers.length > 1 ?
+              "gap-4 overflow-auto grid grid-cols-"
+              + Math.round(Math.sqrt(connectedUsers.length) + 0.5) : ""}>
+              {connectedUsers.map((user) => (
+                <div
+                  key={user}
+                  className="h-full"
+                >
+                  <VoiceModal
+                    id={user}
+                    streams={streamingUsers.includes(user)}
+                    onFocus={(focus) => {
+                      if (focus) {
+                        setFocused(user);
+                      }
+                    }}
+                    focused={true}
+                  />
+                </div>
+              ))}
+            </div>
           </div>
         ) : (
           <>
@@ -115,7 +116,7 @@ export function Main() {
                 focused={true}
               />
             </div>
-            <div className="flex gap-2 w-full overflow-x-auto p-2">
+            <div className="flex gap-2 w-full overflow-x-auto pt-2">
               {connectedUsers.map((user) => {
                 return focused === user ? null : (
                   <div key={user} className="flex-shrink-0">
@@ -161,9 +162,7 @@ function VoiceModal({ id, streams = false, focused = false, onFocus }) {
 
   return (
     <Card
-      className={`p-3 rounded-2xl flex flex-col ${
-        focused ? "w-full h-full" : "w-[240px] h-[200px]"
-      }`}
+      className={`p-3 rounded-2xl flex flex-col ${focused ? "w-full h-full" : "w-[240px] h-[200px]"}`}
     >
       <div className="flex flex-col h-full gap-2">
         {streams && id !== ownUuid ? (
