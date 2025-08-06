@@ -73,11 +73,15 @@ export function GettingCalled() {
     )
 }
 
-export function VideoStream({ id, local = false, className }) {
+export function VideoStream({ id, local = false, className, onPlay }) {
     let videoRef = useRef(null);
     let { getScreenStream } = useCallContext();
     let [mediaStream, setMediaStream] = useState(null);
     let [update, setUpdate] = useState(0);
+
+    function handlePlay() {
+        onPlay(true);
+    }
 
     useEffect(() => {
         if (local) {
@@ -98,6 +102,17 @@ export function VideoStream({ id, local = false, className }) {
             videoRef.current.srcObject = mediaStream;
         }
     }, [mediaStream]);
+
+    useEffect(() => {
+        let videoElement = videoRef.current;
+        if (videoElement) {
+            videoElement.addEventListener("play", handlePlay);
+
+            return () => {
+                videoElement.removeEventListener("play", handlePlay);
+            }
+        }
+    }, [])
 
     return (
         <video

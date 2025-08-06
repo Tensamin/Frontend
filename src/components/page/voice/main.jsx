@@ -77,50 +77,75 @@ export function Main() {
           </CommandList>
         </CommandDialog>
       </div>
-      <div className="flex flex-col h-full justify-center">
-        {focused !== "" && (
-          <div
-            className="relative aspect-video overflow-hidden w-full h-full"
-            key={focused}
-            onClick={() => {
-              setFocused("")
-            }}
-          >
-            <div className="absolute inset-0 h-full w-full object-contain">
-              <VoiceModal
-                id={focused}
-                streams={streamingUsers.includes(focused)}
-                focused
-              />
+      <div className="flex flex-col h-full w-full gap-5">
+        {focused === "" ? (
+          <>
+            <div className="w-full h-full gap-5 p-5 overflow-hidden grid">
+              {connectedUsers.map((user) => (
+                <div key={user} className="">
+                  <VoiceModal
+                    id={user}
+                    streams={streamingUsers.includes(user)}
+                    onFocus={(focus) => {
+                      if (focus) {
+                        setFocused(user)
+                      }
+                    }}
+                    focused
+                    big
+                  />
+                </div>
+              ))}
             </div>
-          </div>
-        )}
-        <div className="flex gap-2">
-          {connectedUsers.map((user) => {
-            return focused === user ? null : (
-              <div
-                key={user}
-                onClick={() => {
-                  setFocused(user)
-                }}
-              >
+          </>
+        ) : (
+          <>
+            <div
+              className="relative aspect-video overflow-hidden w-full h-full"
+              key={focused}
+            >
+              <div className="absolute inset-0 h-full w-full object-contain">
                 <VoiceModal
-                  id={user}
-                  streams={streamingUsers.includes(user)}
+                  id={focused}
+                  streams={streamingUsers.includes(focused)}
+                  onFocus={(focus) => {
+                    if (focus) {
+                      setFocused("")
+                    }
+                  }}
+                  focused
                 />
               </div>
-            )
-          })}
-        </div>
+            </div>
+            <div className="flex justify-center gap-2 w-full">
+              {connectedUsers.map((user) => {
+                return focused === user ? null : (
+                  <div key={user} >
+                    <VoiceModal
+                      id={user}
+                      streams={streamingUsers.includes(user)}
+                      onFocus={(focus) => {
+                        if (focus) {
+                          setFocused(user)
+                        }
+                      }}
+                    />
+                  </div>
+                )
+              })}
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
 };
 
-function VoiceModal({ id, streams = false, focused = false }) {
+function VoiceModal({ id, streams = false, focused = false, onFocus, big }) {
   let [avatar, setAvatar] = useState("...");
   let [username, setUsername] = useState("...");
   let [display, setDisplay] = useState("...");
+  let [loading, setLoading] = useState(true);
   let { get, ownUuid } = useUsersContext();
   let { watchingUsers, voiceSend } = useCallContext();
 
@@ -134,16 +159,72 @@ function VoiceModal({ id, streams = false, focused = false }) {
   }, [id])
 
   return (
-    <Card className="p-2 w-auto rounded-3xl">
-      <div className="flex flex-col gap-2">
+    <Card className={`w-auto p-2 rounded-3xl ${loading && "h-full"} ${big && "h-full"}`} >
+      <div className={`flex flex-col gap-2 ${focused ? "w-full" : "w-[240px]"} ${loading && "h-full"}`}>
+        <div className="flex gap-2">
+          <div className="flex items-center gap-2 p-2 border rounded-2xl bg-input/30 border-input w-full">
+            <div>
+              {avatar !== "..." ? (
+                <Avatar className="size-8 bg-accent border">
+                  {avatar !== "" ? (
+                    <Image
+                      className="object-fill"
+                      data-slot="avatar-image"
+                      width={100}
+                      height={100}
+                      src={avatar}
+                      alt=""
+                      onError={() => {
+                        setAvatar("")
+                      }}
+                    />
+                  ) : null}
+                  <AvatarFallback>
+                    {convertDisplayNameToInitials(username)}
+                  </AvatarFallback>
+                </Avatar>
+              ) : (
+                <Skeleton className="rounded-full size-8" />
+              )}
+            </div>
+            <div>
+              {display !== "..." ?
+                <p>{display}</p>
+                :
+                <Skeleton className="mr-20"><p className="invisible">🥴</p></Skeleton>
+              }
+            </div>
+          </div>
+          <Button
+            className="rounded-2xl h-auto w-"
+            variant="outline"
+            onClick={() => {
+              onFocus(true);
+            }}
+          >
+            {focused ? <Icon.Shrink /> : <Icon.Expand />}
+          </Button>
+        </div>
         {streams && id !== ownUuid && (
-          <div className={focused ? "w-full h-full" : "w-[240px] h-[135px]"}>
+          <div className={`${!focused && "h-[135px]"} ${loading && "h-full"}`}>
             {watchingUsers.includes(id) ? (
-              <VideoStream className="rounded-2xl border-1" id={id} key={id}/>
+              <>
+                {loading ? <Skeleton className="rounded-2xl border h-full" /> : null}
+                <VideoStream
+                  className={`rounded-2xl border-1 ${loading && "hidden"}`}
+                  id={id}
+                  key={id}
+                  onPlay={() => {
+                    setLoading(false);
+                  }}
+                />
+              </>
             ) : (
               <Button
-                className=""
+                className="rounded-2xl border-1 w-full h-full"
+                variant="outline"
                 onClick={() => {
+                  onFocus(true);
                   voiceSend("watch_stream", {
                     message: `${ownUuid} wants to watch ${id}`,
                     log_level: 0,
@@ -158,39 +239,6 @@ function VoiceModal({ id, streams = false, focused = false }) {
             )}
           </div>
         )}
-        <div className="flex items-center gap-2 p-2 border rounded-2xl bg-input/30 border-input">
-          <div>
-            {avatar !== "..." ? (
-              <Avatar className="size-8 bg-accent/50">
-                {avatar !== "" ? (
-                  <Image
-                    className="object-fill"
-                    data-slot="avatar-image"
-                    width={100}
-                    height={100}
-                    src={avatar}
-                    alt=""
-                    onError={() => {
-                      setAvatar("")
-                    }}
-                  />
-                ) : null}
-                <AvatarFallback>
-                  {convertDisplayNameToInitials(username)}
-                </AvatarFallback>
-              </Avatar>
-            ) : (
-              <Skeleton className="rounded-full size-8" />
-            )}
-          </div>
-          <div>
-            {display !== "..." ?
-              <p>{display}</p>
-              :
-              <Skeleton className="mr-20"><p className="invisible">🥴</p></Skeleton>
-            }
-          </div>
-        </div>
       </div>
     </Card>
   )
