@@ -134,7 +134,12 @@ export function LoginForm() {
           });
       }
 
-      let attestation = await startRegistration(options);
+      let attestation;
+      if (useExistingPasskey) {
+        attestation = await startAuthentication(options);
+      } else {
+        attestation = await startRegistration(options);
+      }
 
       await fetch((useExistingPasskey ? endpoint.webauthn_login_verify : endpoint.webauthn_register_verify) + uuid, {
         method: "POST",
