@@ -6,10 +6,6 @@ import { startAuthentication, startRegistration } from '@simplewebauthn/browser'
 import * as Icon from "lucide-react";
 
 // Lib Imports
-import {
-  bufferToBase64url,
-  base64urlToBuffer,
-} from '@/lib/base64url';
 import { endpoint } from '@/lib/endpoints';
 import { sha256, log } from "@/lib/utils"
 
@@ -64,8 +60,8 @@ async function wrapAndStorePrivateKey(privateKey, wrapKey) {
     pt
   );
   let store = [
-    bufferToBase64url(iv),
-    bufferToBase64url(ct),
+    iv.toString("base64"),
+    ct.toString("base64"),
   ].join('|');
   localStorage.setItem('auth_private_key', store);
 }
