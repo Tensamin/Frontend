@@ -93,7 +93,7 @@ export function log(msg, type, title) {
 }
 
 export function isUuid(str) {
-  const uuidRegex =
+  let uuidRegex =
     /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/;
 
   return uuidRegex.test(str);
@@ -231,5 +231,196 @@ export async function getDerivedKey(passkey_id) {
     return derivedKey;
   } catch (err) {
     throw new Error(`Could not get signature: ${err.message}`);
+  }
+}
+
+export async function getDeviceFingerprint() {
+  let data = {};
+
+  try {
+    data.userAgent = navigator.userAgent || "";
+  } catch (e) {}
+  try {
+    data.hardwareConcurrency = navigator.hardwareConcurrency || -1;
+  } catch (e) {}
+  try {
+    data.deviceMemory = navigator.deviceMemory || -1;
+  } catch (e) {}
+  try {
+    data.language = navigator.language || "";
+  } catch (e) {}
+  try {
+    data.languages =
+      (navigator.languages && navigator.languages.join(",")) || "";
+  } catch (e) {}
+  try {
+    data.cookieEnabled = navigator.cookieEnabled || false;
+  } catch (e) {}
+  try {
+    data.screenWidth = screen.width || -1;
+  } catch (e) {}
+  try {
+    data.screenHeight = screen.height || -1;
+  } catch (e) {}
+  try {
+    data.screenAvailWidth = screen.availWidth || -1;
+  } catch (e) {}
+  try {
+    data.screenAvailHeight = screen.availHeight || -1;
+  } catch (e) {}
+  try {
+    data.screenColorDepth = screen.colorDepth || -1;
+  } catch (e) {}
+  try {
+    data.screenPixelDepth = screen.pixelDepth || -1;
+  } catch (e) {}
+  try {
+    data.windowInnerWidth = window.innerWidth || -1;
+  } catch (e) {}
+  try {
+    data.windowInnerHeight = window.innerHeight || -1;
+  } catch (e) {}
+  try {
+    data.windowDevicePixelRatio = window.devicePixelRatio || -1;
+  } catch (e) {}
+  try {
+    let canvas = document.createElement("canvas");
+    let ctx = canvas.getContext("2d");
+    if (ctx) {
+      canvas.width = 250;
+      canvas.height = 80;
+      ctx.textBaseline = "alphabetic";
+      ctx.fillStyle = "#f60";
+      ctx.fillRect(125, 1, 62, 20);
+      ctx.fillStyle = "#069";
+      ctx.font = '11pt "Arial"';
+      ctx.fillText("https://tensamin.methanium.net", 2, 15);
+      ctx.fillStyle = "rgba(102, 204, 0, 0.2)";
+      ctx.font = '18pt "Times New Roman"';
+      ctx.fillText("https://methanium.net", 4, 45);
+      data.canvasImage = canvas.toDataURL();
+    }
+  } catch (e) {
+    data.canvasImage = "error";
+  }
+  try {
+    let canvas = document.createElement("canvas");
+    let gl =
+      canvas.getContext("webgl") || canvas.getContext("experimental-webgl");
+    if (gl) {
+      let debugInfo = gl.getExtension("WEBGL_debug_renderer_info");
+      data.webglVendor =
+        (debugInfo && gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL)) ||
+        "";
+      data.webglRenderer =
+        (debugInfo && gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL)) ||
+        "";
+      data.webglVersion = gl.getParameter(gl.VERSION) || "";
+      data.webglShadingLanguageVersion =
+        gl.getParameter(gl.SHADING_LANGUAGE_VERSION) || "";
+      data.webglExtensions = gl.getSupportedExtensions().sort().join(";") || "";
+    }
+  } catch (e) {
+    data.webglVendor = "error";
+    data.webglRenderer = "error";
+  }
+  try {
+    let AudioContext = window.AudioContext || window.webkitAudioContext;
+    if (AudioContext) {
+      let audioCtx = new AudioContext();
+      let oscillator = audioCtx.createOscillator();
+      let analyser = audioCtx.createAnalyser();
+      let gain = audioCtx.createGain();
+
+      oscillator.type = "sine";
+      oscillator.frequency.setValueAtTime(1000, audioCtx.currentTime);
+      gain.gain.setValueAtTime(0, audioCtx.currentTime);
+
+      oscillator.connect(analyser);
+      analyser.connect(gain);
+      gain.connect(audioCtx.destination);
+
+      oscillator.start(0);
+      oscillator.stop(0.1);
+
+      let buffer = new Float32Array(analyser.frequencyBinCount);
+      analyser.getFloatFrequencyData(buffer);
+
+      data.audioFingerprint = Array.from(buffer)
+        .map((v) => (v === -Infinity ? "I" : v.toFixed(3))) 
+        .join(",");
+      audioCtx.close();
+    }
+  } catch (e) {
+    data.audioFingerprint = "error";
+  }
+  let fontsToCheck = [
+    "Arial",
+    "Verdana",
+    "Times New Roman",
+    "Georgia",
+    "Courier New",
+    "Impact",
+    "Lucida Console",
+    "Tahoma",
+    "Comic Sans MS",
+    "Open Sans",
+    "Roboto",
+    "Ubuntu",
+    "Fira Code",
+    "Anonymous Pro",
+    "Monaco",
+    "Consolas",
+    "DejaVu Sans Mono",
+  ];
+  let detectedFonts = [];
+  let body = document.body;
+  let originalBodyStyle = body.style.fontFamily;
+  let defaultFont = "monospace";
+  let isFontAvailable = (fontName) => {
+    let testText = "mmmmmmmmmmlli";
+    let span = document.createElement("span");
+    span.style.cssText = `
+      position:absolute;
+      left:-9999px;
+      line-height:normal;
+      font-size:72px;
+      font-family:${defaultFont};
+    `;
+    span.innerText = testText;
+    document.body.appendChild(span);
+    let defaultWidth = span.offsetWidth;
+    let defaultHeight = span.offsetHeight;
+    span.style.fontFamily = `'${fontName}', ${defaultFont}`;
+    let newWidth = span.offsetWidth;
+    let newHeight = span.offsetHeight;
+    document.body.removeChild(span);
+    return defaultWidth !== newWidth || defaultHeight !== newHeight;
+  };
+  try {
+    for (let font of fontsToCheck) {
+      if (isFontAvailable(font)) {
+        detectedFonts.push(font);
+      }
+    }
+    data.detectedFonts = detectedFonts.sort().join(",");
+  } catch (e) {
+    data.detectedFonts = "error";
+  } finally {
+    body.style.fontFamily = originalBodyStyle;
+  }
+  let jsonString = JSON.stringify(data);
+  let textEncoder = new TextEncoder();
+  let dataBytes = textEncoder.encode(jsonString);
+  try {
+    let hashBuffer = await crypto.subtle.digest("SHA-256", dataBytes);
+    let hashArray = Array.from(new Uint8Array(hashBuffer));
+    let hashHex = hashArray
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
+    return hashHex;
+  } catch (e) {
+    console.error("Failed to generate fingerprint hash:", e);
+    return "hash_error";
   }
 }
