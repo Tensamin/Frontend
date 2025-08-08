@@ -30,11 +30,10 @@ export function LoadingWrapper() {
     let pathname = usePathname();
 
     useEffect(() => {
-        let passkey_id = ls.get("auth_passkey_id");
         let private_key = ls.get("auth_private_key");
         let uuid = ls.get("auth_uuid");
 
-        const authenticated = (passkey_id && private_key && uuid);
+        const authenticated = (private_key && uuid);
         setIsAuthenticated(authenticated);
 
         if (pathname === '/login') {

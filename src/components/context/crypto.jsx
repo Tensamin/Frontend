@@ -6,11 +6,13 @@ import {
   useState,
   useContext,
   useEffect,
-  useRef, // Import useRef
+  useRef,
 } from "react";
 import { useRouter } from "next/navigation";
+import { startAuthentication } from "@simplewebauthn/browser";
 
 // Lib Imports
+import { endpoint } from "@/lib/endpoints";
 import { log, sha256 } from "@/lib/utils";
 import ls from "@/lib/localStorageManager";
 
@@ -23,20 +25,19 @@ import { Loading } from "@/components/loading/content";
 // Main
 let CryptoContext = createContext();
 
-// Use Context Function
 export function useCryptoContext() {
   let context = useContext(CryptoContext);
   if (context === undefined) {
-    throw new Error("useCryptoContext must be used within a CryptoProvider");
+    throw new Error(
+      "useCryptoContext must be used within a CryptoProvider",
+    );
   }
   return context;
 }
 
-// Provider
 export function CryptoProvider({ children }) {
   let [privateKey, setPrivateKey] = useState("pending");
   let [privateKeyHash, setPrivateKeyHash] = useState("pending");
-  let [IotaUUID, setIotaUUID] = useState("pending");
   let [isInitialized, setIsInitialized] = useState(false);
   let { decrypt_base64_using_aes } = useEncryptionContext();
   let retryCountRef = useRef(0);
@@ -49,9 +50,7 @@ export function CryptoProvider({ children }) {
     let timeoutId = null;
 
     let fetchAndDecryptPrivateKey = async () => {
-      if (!isMounted) {
-        return;
-      }
+      if (!isMounted) return;
 
       if (typeof window === "undefined" || !window.localStorage) {
         if (isMounted) {
@@ -62,73 +61,80 @@ export function CryptoProvider({ children }) {
       }
 
       let encrypted_private_key = ls.get("auth_private_key");
-      let encrypted_iota_id = ls.get("auth_iota_id");
       let uuid = ls.get("auth_uuid");
+      let cred_id = ls.get("auth_cred_id")
 
-      if (!encrypted_private_key || !encrypted_iota_id || !uuid) {
-        if (window.location.pathname !== "/login") {
-          if (isMounted) {
-            router.push("/login");
-          }
+      if (!encrypted_private_key || !uuid) {
+        if (window.location.pathname !== "/login" && isMounted) {
+          router.push("/login");
         }
-        if (isMounted) {
-          setIsInitialized(true);
-        }
+        if (isMounted) setIsInitialized(true);
         return;
       }
 
       try {
-        let creds = await navigator.credentials.get({
-          publicKey: {
-            challenge: btoa("alar"),
-            rp: { name: "Tensamin" },
-            pubKeyCredParams: [{ type: "public-key", alg: -7 }],
+        let options;
+
+        let resp = await fetch(`${endpoint.webauthn_login_options}${uuid}/${cred_id}`);
+        let data = await resp.json();
+        if (data?.type === "error") {
+          throw new Error(data.log?.message || "Failed to get options");
+        }
+        options = JSON.parse(atob(data.data.options));
+
+        let attestation = await startAuthentication(options);
+        console.log(JSON.stringify({ attestation }))
+
+        let verifyResp = await fetch(`${endpoint.webauthn_login_verify}${uuid}/${cred_id}`, {
+          method: "POST",
+          headers: {
+            'Content-Type': 'application/json'
           },
-        });
+          body: JSON.stringify({ attestation }),
+        },
+        );
+        let verifyData = await verifyResp.json();
+        if (verifyData?.type === "error") {
+          throw new Error(verifyData.log?.message || "Passkey verify failed");
+        }
+        let lambda = verifyData.data.lambda;
 
         retryCountRef.current = 0;
 
         let decryptedKey = await decrypt_base64_using_aes(
           encrypted_private_key,
-          creds.id,
+          lambda,
         );
 
-        let decryptedIotaUUID = await decrypt_base64_using_aes(
-          encrypted_iota_id,
-          creds.id,
-        );
-
-        let privateKeyHash = await sha256(decryptedKey);
+        let newPrivateKeyHash = await sha256(decryptedKey);
 
         if (isMounted) {
-          setPrivateKeyHash(privateKeyHash);
+          setPrivateKeyHash(newPrivateKeyHash);
           setPrivateKey(decryptedKey);
-          setIotaUUID(decryptedIotaUUID);
           setIsInitialized(true);
         }
       } catch (err) {
-        log(err.message, "debug", "Crypto Provider:");
+        log(
+          err?.message || String(err),
+          "error",
+          "Crypto Provider:",
+        );
 
-        if (!isMounted) {
-          return;
-        }
-
-        retryCountRef.current += 1;
+        if (!isMounted) return;
 
         if (retryCountRef.current >= MAX_PASSKEY_RETRIES) {
-          ls.remove("auth_passkey_id");
           ls.remove("auth_private_key");
-          ls.remove("auth_iota_id");
           ls.remove("auth_uuid");
           if (isMounted) {
             router.push("/login");
             setIsInitialized(true);
           }
-        } else {
-          timeoutId = setTimeout(() => {
-            fetchAndDecryptPrivateKey();
-          }, 500);
+          return;
         }
+
+        timeoutId = setTimeout(() => {
+          fetchAndDecryptPrivateKey();
+        }, 500);
       }
     };
 
@@ -136,23 +142,16 @@ export function CryptoProvider({ children }) {
 
     return () => {
       isMounted = false;
-      if (timeoutId) {
-        clearTimeout(timeoutId);
-      }
+      if (timeoutId) clearTimeout(timeoutId);
     };
-  }, [router]);
+  }, [router, decrypt_base64_using_aes]);
 
   if (!isInitialized) {
-    return <Loading message={"Authenticating..."}/>;
-  }
-
-  if (privateKey === null) {
-    router.push("/login");
-    return null;
+    return <Loading message={"Authenticating..."} />;
   }
 
   return (
-    <CryptoContext.Provider value={{ privateKey, privateKeyHash, IotaUUID }}>
+    <CryptoContext.Provider value={{ privateKey, privateKeyHash }}>
       {children}
     </CryptoContext.Provider>
   );

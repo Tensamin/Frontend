@@ -1,5 +1,4 @@
 export let endpoint = {
-    login: "https://auth.tensamin.methanium.net/api/login",
     username_to_uuid: "https://auth.tensamin.methanium.net/api/get/uuid/",
     user: "https://auth.tensamin.methanium.net/api/get/",
 

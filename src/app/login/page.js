@@ -8,6 +8,10 @@ import * as Icon from "lucide-react";
 // Lib Imports
 import { endpoint } from '@/lib/endpoints';
 import { sha256, log } from "@/lib/utils"
+import ls from '@/lib/localStorageManager';
+
+// Context Imports
+import { useEncryptionContext } from '@/components/context/encryption';
 
 // Components
 import { Card, CardContent } from "@/components/ui/card"
@@ -31,41 +35,6 @@ function readFileAsText(file) {
   });
 }
 
-async function deriveWrappingKey(id) {
-  let options = await fetch(endpoint.webauthn_login_options + id)
-    .then(response => response.json())
-    .then(data => {
-      return data.options;
-    })
-
-  let assertion = await startAuthentication(options);
-  let ext = assertion.getClientExtensionResults();
-  let rawKey = ext.hmacGetSecret;
-
-  return window.crypto.subtle.importKey(
-    'raw',
-    rawKey,
-    { name: 'AES-GCM' },
-    false,
-    ['encrypt', 'decrypt']
-  );
-}
-
-async function wrapAndStorePrivateKey(privateKey, wrapKey) {
-  let iv = window.crypto.getRandomValues(new Uint8Array(12));
-  let pt = new TextEncoder().encode(privateKey);
-  let ct = await window.crypto.subtle.encrypt(
-    { name: 'AES-GCM', iv },
-    wrapKey,
-    pt
-  );
-  let store = [
-    iv.toString("base64"),
-    ct.toString("base64"),
-  ].join('|');
-  localStorage.setItem('auth_private_key', store);
-}
-
 // Wrapper
 export default function EncryptionWrapper() {
   return (
@@ -79,14 +48,17 @@ export default function EncryptionWrapper() {
 export function LoginForm() {
   let [username, setUsername] = useState("");
   let [privateKey, setPrivateKey] = useState("");
+  let { encrypt_base64_using_aes } = useEncryptionContext();
   let privateKeyFileRef = useRef(null);
 
   async function login(useExistingPasskey) {
     try {
       let uuid;
       let options;
-      let salt;
       let verified;
+      let cred_id;
+      let attestation;
+      let lambda;
 
       await fetch(endpoint.username_to_uuid + username)
         .then(response => response.json())
@@ -99,14 +71,14 @@ export function LoginForm() {
         });
 
       if (useExistingPasskey) {
-        await fetch(endpoint.webauthn_login_options + uuid)
+        cred_id = prompt("Enter the cred id found in the database or on the existing device:")
+        await fetch(`${endpoint.webauthn_login_options}${uuid}/${cred_id}`)
           .then(response => response.json())
           .then(data => {
             if (data.type === "error") {
               throw new Error(data.log.message)
             } else {
-              options = data.data.options;
-              salt = data.data.salt;
+              options = JSON.parse(atob(data.data.options));
             }
           });
       } else {
@@ -124,20 +96,18 @@ export function LoginForm() {
             if (data.type === "error") {
               throw new Error(data.log.message)
             } else {
-              options = data.data.options;
-              salt = data.data.salt;
+              options = JSON.parse(atob(data.data.options));
             }
           });
       }
 
-      let attestation;
       if (useExistingPasskey) {
         attestation = await startAuthentication(options);
       } else {
         attestation = await startRegistration(options);
       }
 
-      await fetch((useExistingPasskey ? endpoint.webauthn_login_verify : endpoint.webauthn_register_verify) + uuid, {
+      await fetch(useExistingPasskey ? `${endpoint.webauthn_login_verify}${uuid}/${cred_id}` : endpoint.webauthn_register_verify + uuid, {
         method: "POST",
         headers: {
           'Content-Type': 'application/json'
@@ -150,15 +120,17 @@ export function LoginForm() {
             verified = false;
             throw new Error(data.log.message)
           } else {
+            lambda = data.data.lambda;
+            if (!useExistingPasskey) cred_id = data.data.cred_id;
             verified = true;
           }
-        })
+        });
 
       if (verified) {
-        let wrapKey = await deriveWrappingKey(uuid);
-        await wrapAndStorePrivateKey(privateKey, wrapKey)
-        alert("Finish")
-        return;
+        let encrypted_private_key = await encrypt_base64_using_aes(privateKey, lambda)
+        ls.set('auth_private_key', encrypted_private_key);
+        ls.set('auth_uuid', uuid);
+        ls.set('auth_cred_id', cred_id);
         window.location.href = "/";
       }
     } catch (err) {
