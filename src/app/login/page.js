@@ -153,7 +153,16 @@ export function LoginForm() {
   }
 
   return (
-    <div className="flex flex-col justify-center items-center w-full h-screen">
+    <div 
+      className="flex flex-col justify-center items-center w-full h-screen"
+      onDrop={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        let dt = e.dataTransfer;
+        let files = dt.files;
+        handlePrivateKeyFileChange(files)
+      }}
+    >
       <Card className="w-auto h-auto">
         <CardContent className="flex flex-col gap-6">
           <div className="flex flex-col gap-2">
@@ -161,7 +170,7 @@ export function LoginForm() {
             <Input
               id="username"
               type="text"
-              placeholder="alarm"
+              placeholder="the_real_john_doe"
               value={username}
               onChange={handleUsernameChange}
             />
@@ -169,7 +178,7 @@ export function LoginForm() {
           <div className="flex flex-col gap-2">
             <Label htmlFor="private-key">Private Key</Label>
             <div
-              className="w-full h-20 border rounded-lg bg-input/30 flex"
+              className="w-full h-full py-3 border border-input rounded-lg bg-input/30 hover:bg-input/50 flex"
               onClick={handlePrivateKeyClick}
             >
               <input
@@ -183,13 +192,14 @@ export function LoginForm() {
                 {privateKey === "" ? <Icon.FileKey size={30} strokeWidth={1} />
                   : <Icon.FileCheck size={30} strokeWidth={1} />}
               </div>
-              <div className="h-full w-full flex flex-col items-center justify-center text-xs">
-                {privateKey === "" ? (
-                  <>
+              <div className="h-full w-full flex flex-col items-center justify-center text-xs select-none">
+                {privateKey === "" ? <>
                     <p>Drag & Drop your private key</p>
-                    <p>It will never leave your device.</p>
-                  </>
-                ) : <p>Private Key selected!</p>}
+                    <p className='text-muted-foreground'>It will never leave your device.</p>
+                  </> : <>
+                    <p>Private key selected!</p>
+                    <p className='text-muted-foreground'>You can still change it.</p>
+                  </>}
               </div>
             </div>
           </div>
