@@ -33,7 +33,7 @@ function readFileAsText(file) {
     };
     reader.readAsText(file);
   });
-}
+};
 
 // Wrapper
 export default function EncryptionWrapper() {
@@ -42,7 +42,7 @@ export default function EncryptionWrapper() {
       <LoginForm />
     </EncryptionProvider>
   )
-}
+};
 
 // Main
 export function LoginForm() {
@@ -237,4 +237,4 @@ export function LoginForm() {
       </p>
     </div>
   )
-}
+};

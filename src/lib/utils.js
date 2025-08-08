@@ -1,7 +1,7 @@
 // Package Imports
 import { clsx } from "clsx";
 import { toast } from "sonner";
-import { twMerge } from "tailwind-merge"
+import { twMerge } from "tailwind-merge";
 
 // Main
 export function cn(...inputs) {
@@ -423,4 +423,55 @@ export async function getDeviceFingerprint() {
     console.error("Failed to generate fingerprint hash:", e);
     return "hash_error";
   }
+}
+
+export function signWithBase64PrivateKey(privateKeyBase64, message) {
+  if (typeof privateKeyBase64 !== 'string' || !privateKeyBase64.trim()) {
+    throw new TypeError('privateKeyBase64 must be a non-empty string');
+  }
+  if (typeof message !== 'string') {
+    throw new TypeError('message must be a string');
+  }
+
+  if (!crypto || typeof crypto.createPrivateKey !== 'function') {
+    throw new Error(
+      'Node crypto.createPrivateKey is required. Use Node.js runtime ' +
+        '(not Edge).',
+    );
+  }
+
+  let keyObj;
+
+  if (privateKeyBase64.includes('-----BEGIN ')) {
+    keyObj = crypto.createPrivateKey({ key: privateKeyBase64, format: 'pem' });
+  } else {
+    let maybePem = Buffer.from(privateKeyBase64, 'base64').toString('utf8');
+    if (maybePem.includes('-----BEGIN ')) {
+      keyObj = crypto.createPrivateKey({ key: maybePem, format: 'pem' });
+    } else {
+      let der = Buffer.from(privateKeyBase64, 'base64');
+      try {
+        keyObj = crypto.createPrivateKey({ key: der, format: 'der', type: 'pkcs8' });
+      } catch (_) {
+        try {
+          keyObj = crypto.createPrivateKey({ key: der, format: 'der', type: 'pkcs1' });
+        } catch (_) {
+          let body = privateKeyBase64.replace(/\s+/g, '');
+          let lines = body.match(/.{1,64}/g) || [body];
+          let pem = [
+            '-----BEGIN PRIVATE KEY-----',
+            ...lines,
+            '-----END PRIVATE KEY-----',
+            '',
+          ].join('\n');
+          keyObj = crypto.createPrivateKey({ key: pem, format: 'pem' });
+        }
+      }
+    }
+  }
+
+  let signer = crypto.createSign('sha256');
+  signer.update(message, 'utf8');
+  signer.end();
+  return signer.sign(keyObj, 'base64');
 }

@@ -19,6 +19,7 @@ import { useCryptoContext } from "@/components/context/crypto";
 import { useUsersContext } from "@/components/context/users";
 import { useMessageContext } from "@/components/context/messages";
 import { useThemeProvider } from "@/components/context/theme";
+import { useModsContext } from "@/components/context/mods"
 
 // Components
 import { Button } from "@/components/ui/button";
@@ -573,6 +574,32 @@ export function ExtraBenefits() {
         )}
       </CardFooter>
     </Card>
+  )
+}
+
+export function Mods() {
+  let { mods, setMods } = useModsContext();
+
+  return (
+    <div>
+      <p className="text-destructive">Mods are not checked by Tensamin or reviewed by moderators!</p>
+      <p className="text-destructive">Mods can and probably will try to steal your private key!</p>
+      <div className="flex gap-3">
+        <Button>
+          Add Mod
+        </Button>
+        <div className="w-full"/>
+        <Button>
+          Export Mods
+        </Button>
+        <Button>
+          Import Mods
+        </Button>
+      </div>
+      <div>
+
+      </div>
+    </div>
   )
 }
 

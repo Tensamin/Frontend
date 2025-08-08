@@ -4,7 +4,7 @@
 import { useState, useEffect } from "react";
 
 // Lib Imports
-import ls from "@/lib/localStorageManager"
+import ls from "@/lib/localStorageManager";
 
 // Context Imports
 import { usePageContext } from "@/components/context/page";
@@ -12,14 +12,15 @@ import { useThemeProvider } from "@/components/context/theme";
 
 // Components
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
-import { Toaster } from "@/components/ui/sonner"
+import { Toaster } from "@/components/ui/sonner";
 import { Navbar } from "@/components/page/root/navbar";
 import { AppSidebar } from "@/components/page/root/sidebar";
-import { Main as ChatMain } from "@/components/page/chat/main"
-import { Main as HomeMain } from "@/components/page/home/main"
-import { Main as SettingsMain } from "@/components/page/settings/main"
-import { Main as VoiceMain } from "@/components/page/voice/main"
-import { GettingCalled } from "@/components/page/voice/parts"
+import { Main as ChatMain } from "@/components/page/chat/main";
+import { Main as HomeMain } from "@/components/page/home/main";
+import { Main as SettingsMain } from "@/components/page/settings/main";
+import { Main as VoiceMain } from "@/components/page/voice/main";
+import { Main as CommunityMain } from "@/components/page/voice/main";
+import { GettingCalled } from "@/components/page/voice/parts";
 
 export function Page() {
     let [isVisible, setIsVisible] = useState(false);

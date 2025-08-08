@@ -16,6 +16,7 @@ import { CryptoProvider } from "@/components/context/crypto";
 import { EncryptionProvider } from "@/components/context/encryption";
 import { ThemeProvider } from "@/components/context/theme";
 import { CallProvider } from "@/components/context/call";
+import { ModsProvider } from "@/components/context/mods"
 
 // Components
 import { Loading } from "@/components/loading/content";
@@ -89,6 +90,7 @@ export function LoadingWrapper() {
                             <CallProvider>
                                 <PageProvider>
                                     <ThemeProvider>
+                                        <ModsProvider />
                                         <Page />
                                     </ThemeProvider>
                                 </PageProvider>

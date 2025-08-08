@@ -44,7 +44,7 @@ export let WebSocketProvider = ({ children }) => {
   let pendingRequests = useRef(new Map());
   let responseTimeout = 10000;
   let { decrypt_base64_using_privkey } = useEncryptionContext();
-  let { privateKeyHash, privateKey, IotaUUID } = useCryptoContext();
+  let { privateKeyHash, privateKey } = useCryptoContext();
   let { setUserState, setUserStates, forceLoad, setForceLoad, setGettingCalled, setGettingCalledData } = useUsersContext();
   let [iotaPing, setIotaPing] = useState("?");
   let [clientPing, setClientPing] = useState("?");
@@ -196,7 +196,6 @@ export let WebSocketProvider = ({ children }) => {
           log_level: 0
         },
         {
-          iota_id: IotaUUID,
           user_id: ls.get('auth_uuid'),
           private_key_hash: privateKeyHash
         })
@@ -241,10 +240,16 @@ export let WebSocketProvider = ({ children }) => {
       {children}
     </WebSocketContext.Provider>
   ) : identificationFailed ?
-    <Loading key={identificationFailed} message={failedIdentificationMessage} error={true} allowDebugToForceLoad={true} returnDebug={(shouldLoad) => {
-      if (shouldLoad) {
-        setForceLoad(true)
-      }
-    }} /> :
+    <Loading
+      key={identificationFailed}
+      message={failedIdentificationMessage}
+      error={true}
+      allowDebugToForceLoad={true}
+      returnDebug={(shouldLoad) => {
+        if (shouldLoad) {
+          setForceLoad(true)
+        }
+      }}
+    /> :
     <Loading message="Connecting to Omikron..." />;
 };

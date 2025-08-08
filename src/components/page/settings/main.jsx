@@ -17,6 +17,7 @@ let settings = [
     { name: "Notifications", id: "notifications", disabled: false, comp: Page.Notifications },
     { name: "Voice", id: "voice", disabled: false, comp: Page.Voice },
     { name: "Premium", id: "premium", disabled: true, comp: Page.ExtraBenefits },
+    { name: "Mods", id: "mods", disabled: false, comp: Page.Mods },
 
     { name: "Developer", id: "developer", disabled: false, comp: Page.Developer }
 ]
