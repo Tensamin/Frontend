@@ -83,7 +83,6 @@ export function CryptoProvider({ children }) {
         options = JSON.parse(atob(data.data.options));
 
         let attestation = await startAuthentication(options);
-        console.log(JSON.stringify({ attestation }))
 
         let verifyResp = await fetch(`${endpoint.webauthn_login_verify}${uuid}/${cred_id}`, {
           method: "POST",
