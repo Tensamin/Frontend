@@ -223,12 +223,12 @@ export function LoginForm() {
             >
               Add Device with existing passkey
             </Button>
-            <p className="text-[11px] text-center">If this is your first device click "Add Device"</p>
+            <p className="text-[11px] text-center">If this is your first device click 'Add Device'</p>
           </div>
         </CardContent>
       </Card>
       <br />
-      <p className='text-[11px] text-muted-foreground'>By clicking "Add device" or "Add Device with existing passkey"</p> <p className='text-[11px] text-muted-foreground'> you agree to our <a href={endpoint.tos} className='underline'>Terms of Service</a> and <a href={endpoint.pp} className='underline'>Privacy Policy.</a></p>
+      <p className='text-[11px] text-muted-foreground'>By clicking 'Add device" or 'Add Device with existing passkey'</p> <p className='text-[11px] text-muted-foreground'> you agree to our <a href={endpoint.tos} className='underline'>Terms of Service</a> and <a href={endpoint.pp} className='underline'>Privacy Policy.</a></p>
     </div>
   )
 }
