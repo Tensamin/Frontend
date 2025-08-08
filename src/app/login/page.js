@@ -153,7 +153,7 @@ export function LoginForm() {
   }
 
   return (
-    <div 
+    <div
       className="flex flex-col justify-center items-center w-full h-screen"
       onDrop={(e) => {
         e.preventDefault();
@@ -194,12 +194,12 @@ export function LoginForm() {
               </div>
               <div className="h-full w-full flex flex-col items-center justify-center text-xs select-none">
                 {privateKey === "" ? <>
-                    <p>Drag & Drop your private key</p>
-                    <p className='text-muted-foreground'>It will never leave your device.</p>
-                  </> : <>
-                    <p>Private key selected!</p>
-                    <p className='text-muted-foreground'>You can still change it.</p>
-                  </>}
+                  <p>Drag & Drop your private key</p>
+                  <p className='text-muted-foreground'>It will never leave your device.</p>
+                </> : <>
+                  <p>Private key selected!</p>
+                  <p className='text-muted-foreground'>You can still change it.</p>
+                </>}
               </div>
             </div>
           </div>
@@ -223,12 +223,18 @@ export function LoginForm() {
             >
               Add Device with existing passkey
             </Button>
-            <p className="text-[11px] text-center">If this is your first device click 'Add Device'</p>
+            <p className="text-[11px] text-muted-foreground">
+              By clicking &quot;Add device&quot; or &quot;Add Device with existing passkey&quot;
+            </p>
           </div>
         </CardContent>
       </Card>
       <br />
-      <p className='text-[11px] text-muted-foreground'>By clicking 'Add device" or 'Add Device with existing passkey'</p> <p className='text-[11px] text-muted-foreground'> you agree to our <a href={endpoint.tos} className='underline'>Terms of Service</a> and <a href={endpoint.pp} className='underline'>Privacy Policy.</a></p>
+      <p className="text-[11px] text-muted-foreground">
+        you agree to our <a href={endpoint.tos} className="underline">
+          Terms of Service
+        </a> and <a href={endpoint.pp} className="underline">Privacy Policy.</a>
+      </p>
     </div>
   )
 }
